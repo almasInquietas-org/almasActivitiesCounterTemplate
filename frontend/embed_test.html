@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prueba de Integración Iframe (Local)</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      /* Simulating a dark/colorful parent website background */
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+
+    p {
+      margin-bottom: 40px;
+      color: #94a3b8;
+      text-align: center;
+      max-width: 600px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .embed-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .embed-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #38bdf8;
+    }
+
+    iframe {
+      width: 100%;
+      border: none;
+      background: transparent; /* Standard iframe transparency attribute */
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Prueba de Integración Iframe</h1>
+  <p>
+    Esta página simula el sitio web principal (con un fondo oscuro). 
+    Si la transparencia funciona correctamente, el fondo del contador se adaptará perfectamente a este degradado oscuro.
+  </p>
+
+  <div class="container">
+    <!-- Test 1: Counter view (430px reserved height) -->
+    <div class="embed-box">
+      <div class="embed-title">Vista: Contador (?view=counter) — Altura: 430px</div>
+      <iframe 
+        src="http://localhost:5173/?view=counter" 
+        height="430"
+        title="Activum Counter Embed"
+      ></iframe>
+    </div>
+
+    <!-- Test 2: Full Dashboard view -->
+    <div class="embed-box">
+      <div class="embed-title">Vista: Dashboard Completo — Altura: 800px</div>
+      <iframe 
+        src="http://localhost:5173/" 
+        height="800"
+        title="Activum Dashboard Embed"
+      ></iframe>
+    </div>
+  </div>
+
+</body>
+</html>

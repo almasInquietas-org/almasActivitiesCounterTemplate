@@ -1,0 +1,607 @@
+/* =========================================================
+   ACTIVUM RIDES THE WAVE — Component Styles
+   ========================================================= */
+
+/* ---- Layout ---- */
+#root {
+  width: 90%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-xl) 0 var(--space-2xl);
+}
+
+/* ---- Header ---- */
+.dashboard-header {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  animation: fadeInUp 0.6s ease both;
+}
+
+.dashboard-header .logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: linear-gradient(135deg, var(--activum-teal-dark), var(--activum-teal));
+  color: var(--text-on-teal);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: var(--space-md);
+}
+
+.dashboard-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.05;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+  margin-bottom: var(--space-sm);
+}
+
+.dashboard-header .subtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ---- Live pulse dot ---- */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ---- Counter Section ---- */
+.counter-section {
+  padding: var(--space-xl) var(--space-xl);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+  animation: fadeInUp 0.5s ease both;
+  animation-delay: 0.1s;
+}
+
+.counter-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.counter-number {
+  font-family: var(--font-display);
+  font-size: clamp(4rem, 12vw, 8rem);
+  line-height: 1;
+  color: var(--activum-teal);
+  animation: countUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.3s;
+  text-shadow: 0 2px 20px var(--activum-teal-glow);
+}
+
+.counter-unit {
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  color: var(--text-secondary);
+  margin-left: var(--space-sm);
+  font-family: var(--font-display);
+}
+
+/* ---- Progress Bar ---- */
+.progress-section {
+  margin-top: var(--space-lg);
+  padding: 0 var(--space-xs);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 28px; /* Extra room for checkpoint flags */
+  letter-spacing: 0.04em;
+}
+
+.progress-labels .goal-label {
+  color: var(--activum-teal-dark);
+}
+
+.progress-track {
+  height: 12px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 100px;
+  position: relative;
+  overflow: visible; /* Allow checkpoint markers/labels to extend outside */
+  margin-bottom: 18px; /* Extra room for checkpoint labels */
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(
+    90deg,
+    var(--activum-teal-dark),
+    var(--activum-teal),
+    var(--activum-teal-light)
+  );
+  background-size: 200% 100%;
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: shimmer 2.5s linear infinite;
+  position: relative;
+  overflow: hidden; /* Keep rounded corners on fill */
+}
+
+.progress-pct {
+  margin-top: 40px; /* Space below checkpoint labels */
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.progress-pct strong {
+  color: var(--activum-teal-dark);
+}
+
+/* Shown instead of progress bar when no goal is configured */
+.counter-activities-note {
+  margin-top: var(--space-md);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Section Title ---- */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  letter-spacing: 0.01em;
+}
+
+.section-title .section-icon {
+  font-size: 1.3rem;
+}
+
+/* ---- Leaderboard ---- */
+.leaderboard-section {
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  animation: fadeInUp 0.5s ease both;
+  animation-delay: 0.2s;
+}
+
+.athlete-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.athlete-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 14px var(--space-md);
+  border-radius: var(--radius-md);
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid transparent;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+  cursor: default;
+}
+
+.athlete-row:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--activum-teal-glow);
+  transform: translateX(4px);
+}
+
+.athlete-row.top-1 { background: linear-gradient(90deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.02)); }
+.athlete-row.top-2 { background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), rgba(192, 192, 192, 0.02)); }
+.athlete-row.top-3 { background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), rgba(205, 127, 50, 0.02)); }
+
+.athlete-rank {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.athlete-rank.medal { font-size: 1.4rem; }
+
+.athlete-info {
+  min-width: 0;
+}
+
+.athlete-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.athlete-increment {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.athlete-increment span {
+  color: var(--activum-teal);
+  font-weight: 600;
+}
+
+.athlete-km {
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--activum-teal-dark);
+  white-space: nowrap;
+}
+
+.athlete-km-unit {
+  font-size: 0.7rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* ---- Activity Carousel ---- */
+.carousel-section {
+  margin-bottom: var(--space-xl);
+  animation: fadeInUp 0.5s ease both;
+  animation-delay: 0.3s;
+}
+
+.carousel-track {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  padding: var(--space-sm) var(--space-xs) var(--space-md);
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.activity-card {
+  flex: 0 0 220px;
+  scroll-snap-align: start;
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+  cursor: default;
+}
+
+.activity-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+
+.activity-card-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: var(--activum-teal-glow);
+  color: var(--activum-teal-dark);
+  margin-bottom: var(--space-sm);
+}
+
+.activity-card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+  margin-bottom: var(--space-xs);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.activity-card-athlete {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.activity-card-distance {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--activum-teal);
+  line-height: 1;
+}
+
+.activity-card-distance-unit {
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+.activity-card-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}
+
+/* ---- Loading Skeletons ---- */
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-block {
+  height: 20px;
+  margin-bottom: var(--space-sm);
+}
+
+.skeleton-large {
+  height: 80px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+/* ---- Error State ---- */
+.error-state {
+  text-align: center;
+  padding: var(--space-xl);
+  animation: fadeInUp 0.5s ease both;
+}
+
+.error-state h2 {
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.error-state p {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.btn-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: linear-gradient(135deg, var(--activum-teal-dark), var(--activum-teal));
+  color: var(--text-on-teal);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  box-shadow: var(--shadow-teal);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-retry:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  #root {
+    width: 94%;
+    padding: var(--space-lg) 0 var(--space-xl);
+  }
+
+  .counter-section,
+  .leaderboard-section {
+    padding: var(--space-lg);
+  }
+
+  .athlete-row {
+    grid-template-columns: 32px 1fr auto;
+    gap: var(--space-sm);
+  }
+
+  .activity-card { flex: 0 0 180px; }
+}
+
+/* ---- Single-view mode (?view=counter|ranking|activities) ---- */
+/* Give the isolated section a bit more breathing room */
+#root.view-ranking,
+#root.view-activities {
+  padding-top: var(--space-lg);
+}
+
+/* In counter-only view make the layout compact and fully responsive to viewport dimensions */
+#root.view-counter {
+  padding: 16px 0 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#root.view-counter .dashboard-header {
+  margin-bottom: var(--space-sm) !important;
+}
+
+#root.view-counter .dashboard-header h1 {
+  font-size: clamp(1.4rem, 6.5vw, 2.4rem) !important;
+}
+
+#root.view-counter .dashboard-header .subtitle {
+  font-size: clamp(0.8rem, 2.8vw, 1.05rem) !important;
+  max-width: 380px !important;
+  margin: 0 auto !important;
+}
+
+#root.view-counter .counter-section {
+  padding: 16px !important;
+  margin-bottom: 0 !important;
+  border-radius: var(--radius-md) !important;
+}
+
+#root.view-counter .counter-label {
+  font-size: clamp(0.7rem, 2.2vw, 0.8rem) !important;
+  margin-bottom: var(--space-xs) !important;
+}
+
+#root.view-counter .counter-number {
+  font-size: clamp(3rem, 12vw, 5.5rem) !important;
+}
+
+#root.view-counter .counter-unit {
+  font-size: clamp(1.1rem, 4vw, 1.8rem) !important;
+  margin-left: var(--space-xs) !important;
+}
+
+#root.view-counter .counter-activities-note {
+  font-size: clamp(0.7rem, 2.2vw, 0.85rem) !important;
+  margin-top: var(--space-xs) !important;
+  color: var(--text-muted);
+}
+
+#root.view-counter .progress-section {
+  margin-top: var(--space-sm) !important;
+}
+
+#root.view-counter .progress-labels {
+  font-size: clamp(0.7rem, 2.2vw, 0.8rem) !important;
+  margin-bottom: 24px !important; /* Extra room for checkpoint flags in compact view */
+}
+
+#root.view-counter .progress-pct {
+  font-size: clamp(0.7rem, 2.2vw, 0.85rem) !important;
+  margin-top: 32px !important; /* Space below checkpoint labels in compact view */
+}
+
+#root.view-counter .checkpoint-label {
+  font-size: clamp(0.5rem, 1.8vw, 0.6rem) !important;
+}
+
+#root.view-counter .progress-track {
+  margin-bottom: 14px !important;
+}
+
+/* In ranking-only view remove the bottom carousel gap */
+#root.view-ranking .leaderboard-section {
+  margin-bottom: 0;
+}
+
+/* In activities-only view remove the bottom margin */
+#root.view-activities .carousel-section {
+  margin-bottom: 0;
+}
+
+/* ---- Checkpoint Markers ---- */
+.checkpoint-marker {
+  position: absolute;
+  top: -3px;
+  height: calc(100% + 6px);
+  width: 2px;
+  background: var(--text-muted);
+  transform: translateX(-50%);
+  transition: background var(--transition-normal);
+  z-index: 2;
+}
+
+/* Dot on top of the marker */
+.checkpoint-marker::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  transition: background var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+/* Label below the bar — always visible (mobile-friendly) */
+.checkpoint-label {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Achieved state ---- */
+.checkpoint-marker.achieved {
+  background: var(--activum-teal);
+}
+
+.checkpoint-marker.achieved::before {
+  background: var(--activum-teal);
+  box-shadow: 0 0 8px var(--activum-teal-glow);
+  animation: checkpoint-pulse 2s ease-in-out infinite;
+}
+
+.checkpoint-marker.achieved .checkpoint-label {
+  color: var(--activum-teal-dark);
+}
+
+/* Subtle pulse animation for achieved checkpoints */
+@keyframes checkpoint-pulse {
+  0%, 100% { box-shadow: 0 0 6px var(--activum-teal-glow); transform: translateX(-50%) scale(1); }
+  50%      { box-shadow: 0 0 14px var(--activum-teal-glow); transform: translateX(-50%) scale(1.15); }
+}
+
+/* Checkpoint flag image style */
+.checkpoint-flag {
+  position: absolute;
+  bottom: calc(100% + 4px); /* Sits right on top of the dot marker */
+  left: 50%;
+  /* Shift left to align the flagpole/stick (which is offset from the left edge in the PNG) with the dot */
+  transform: translateX(-38%);
+  width: clamp(18px, 3.2vw, 32px); /* Responsive width: scales with viewport */
+  height: auto;
+  z-index: 3;
+  pointer-events: none; /* Let hover tooltips register on the parent marker */
+  transition: filter var(--transition-normal);
+}
+
+/* 
+  If the base image is RED: 
+  Turn it GREEN (hue-rotate 120deg) when achieved.
+*/
+.checkpoint-marker.achieved .checkpoint-flag {
+  filter: hue-rotate(120deg) saturate(1.3) brightness(0.95);
+}
+
+/* 
+  If the base image is GREEN:
+  Turn it RED (hue-rotate 240deg) when NOT achieved (pending).
+  (Uncomment if your original flag image is green)
+  
+  .checkpoint-marker:not(.achieved) .checkpoint-flag {
+    filter: hue-rotate(240deg) saturate(1.3) brightness(0.95);
+  }
+*/
+
