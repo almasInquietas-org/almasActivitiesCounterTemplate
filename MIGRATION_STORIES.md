@@ -111,8 +111,8 @@ To allow any model (including fast/low-cost models) to implement each story in s
 3. Unit tests in `tests/test_db.py` verify new athlete creation, multi-club registration without duplicates, token update, and unknown athlete lookup.
 
 #### Technical Tasks
-- [ ] Implement `save_athlete()` and `get_athlete()` in `api/db.py`.
-- [ ] Write unit tests in `tests/test_db.py` using `moto`.
+- [x] Implement `save_athlete()` and `get_athlete()` in `api/db.py`.
+- [x] Write unit tests in `tests/test_db.py` using `moto`.
 
 ---
 
