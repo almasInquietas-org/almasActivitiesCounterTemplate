@@ -2,7 +2,9 @@
 db.py - DynamoDB Data Access Layer for ATHLETES and ACTIVITIES tables.
 """
 from datetime import datetime, timezone
+from decimal import Decimal
 import boto3
+from botocore.exceptions import ClientError
 from api import api_config as config
 
 
@@ -62,3 +64,96 @@ def save_athlete(
 
     table.put_item(Item=item)
     return item
+
+
+def get_activities_table():
+    """Returns the DynamoDB Table resource for the ACTIVITIES table."""
+    dynamodb = get_dynamodb_resource()
+    return dynamodb.Table(config.ACTIVITIES_TABLE_NAME)
+
+
+def save_activity(
+    activity: dict,
+    athlete_id: str,
+    athlete_name: str,
+    clubs: list[str],
+) -> bool:
+    """
+    Saves an activity in ACTIVITIES_TABLE_NAME idempotently.
+    Uses ConditionExpression='attribute_not_exists(activity_id)'.
+    Returns True if newly inserted, False if already exists.
+    """
+    table = get_activities_table()
+    activity_id = str(activity.get("id"))
+
+    # Convert distance to km (Intervals.icu reports meters in 'distance')
+    if "distance_km" in activity:
+        dist_km = Decimal(str(round(float(activity["distance_km"]), 2)))
+    elif "distance" in activity and activity["distance"] is not None:
+        dist_meters = float(activity["distance"])
+        dist_km = Decimal(str(round(dist_meters / 1000.0, 2)))
+    else:
+        dist_km = Decimal("0.00")
+
+    elevation = activity.get("total_elevation_gain")
+    if elevation is not None:
+        elevation_gain = Decimal(str(round(float(elevation), 2)))
+    else:
+        elevation_gain = Decimal("0")
+
+    moving_time = activity.get("moving_time_seconds")
+    if moving_time is None:
+        moving_time = activity.get("moving_time", 0)
+    moving_time_int = int(moving_time or 0)
+
+    start_date = (
+        activity.get("start_date_local")
+        or activity.get("start_date")
+        or ""
+    )
+
+    title = activity.get("title") or activity.get("name") or ""
+    act_type = activity.get("type") or ""
+    sport_type = activity.get("sport_type") or act_type
+
+    item = {
+        "activity_id": activity_id,
+        "athlete_id": str(athlete_id),
+        "athlete": str(athlete_name),
+        "clubs": list(clubs) if clubs else [],
+        "title": str(title),
+        "type": str(act_type),
+        "sport_type": str(sport_type),
+        "distance_km": dist_km,
+        "moving_time_seconds": moving_time_int,
+        "total_elevation_gain": elevation_gain,
+        "start_date": str(start_date),
+    }
+
+    try:
+        table.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(activity_id)",
+        )
+        return True
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            return False
+        raise
+
+
+def get_all_activities() -> list[dict]:
+    """
+    Performs a full paginated scan of ACTIVITIES_TABLE_NAME and returns all items.
+    """
+    table = get_activities_table()
+    items = []
+    response = table.scan()
+    items.extend(response.get("Items", []))
+
+    while "LastEvaluatedKey" in response:
+        response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+        items.extend(response.get("Items", []))
+
+    return items
+

@@ -80,3 +80,118 @@ def test_save_athlete_empty_club_id(dynamodb_mock):
         club_id="",
     )
     assert result["clubs"] == []
+
+
+def test_save_activity_new(dynamodb_mock):
+    from decimal import Decimal
+
+    activity_data = {
+        "id": "act_1001",
+        "name": "Morning Run",
+        "type": "Run",
+        "sport_type": "Run",
+        "distance": 10050.0,  # 10.05 km in meters
+        "moving_time": 3600,
+        "total_elevation_gain": 120.5,
+        "start_date_local": "2026-10-24T08:00:00",
+    }
+
+    saved = db.save_activity(
+        activity=activity_data,
+        athlete_id="ath_1",
+        athlete_name="Daniel Fernandez",
+        clubs=["almas_inquietas"],
+    )
+    assert saved is True
+
+    # Retrieve directly from DynamoDB
+    table = db.get_activities_table()
+    res = table.get_item(Key={"activity_id": "act_1001"})
+    item = res.get("Item")
+    assert item is not None
+    assert item["activity_id"] == "act_1001"
+    assert item["athlete_id"] == "ath_1"
+    assert item["athlete"] == "Daniel Fernandez"
+    assert item["clubs"] == ["almas_inquietas"]
+    assert item["title"] == "Morning Run"
+    assert item["type"] == "Run"
+    assert item["sport_type"] == "Run"
+    assert item["distance_km"] == Decimal("10.05")
+    assert item["moving_time_seconds"] == 3600
+    assert item["total_elevation_gain"] == Decimal("120.5")
+    assert item["start_date"] == "2026-10-24T08:00:00"
+
+
+def test_save_activity_idempotency_duplicate(dynamodb_mock):
+    activity_data = {
+        "id": 48566307,  # integer id converted to str
+        "name": "Evening Ride",
+        "type": "Ride",
+        "distance": 25000,
+        "start_date_local": "2026-10-24T18:00:00",
+    }
+    first_save = db.save_activity(
+        activity=activity_data,
+        athlete_id="ath_2",
+        athlete_name="Maria Lopez",
+        clubs=["almas_inquietas"],
+    )
+    assert first_save is True
+
+    # Second save should detect attribute_not_exists condition failure and return False
+    second_save = db.save_activity(
+        activity=activity_data,
+        athlete_id="ath_2",
+        athlete_name="Maria Lopez",
+        clubs=["almas_inquietas"],
+    )
+    assert second_save is False
+
+
+def test_save_activity_fallback_fields(dynamodb_mock):
+    from decimal import Decimal
+
+    activity_data = {
+        "id": "act_minimal",
+        "distance_km": 5.25,  # already in km
+        "start_date": "2026-10-23T10:00:00",
+    }
+    saved = db.save_activity(
+        activity=activity_data,
+        athlete_id="ath_3",
+        athlete_name="Alex Runner",
+        clubs=[],
+    )
+    assert saved is True
+    table = db.get_activities_table()
+    item = table.get_item(Key={"activity_id": "act_minimal"}).get("Item")
+    assert item["distance_km"] == Decimal("5.25")
+    assert item["start_date"] == "2026-10-23T10:00:00"
+    assert item["title"] == ""
+    assert item["type"] == ""
+    assert item["sport_type"] == ""
+    assert item["moving_time_seconds"] == 0
+    assert item["total_elevation_gain"] == Decimal("0")
+
+
+def test_get_all_activities(dynamodb_mock):
+    assert db.get_all_activities() == []
+
+    # Insert 2 activities
+    db.save_activity(
+        activity={"id": "1", "distance": 5000, "start_date_local": "2026-10-20T00:00:00"},
+        athlete_id="ath_1",
+        athlete_name="Ath 1",
+        clubs=["club_a"],
+    )
+    db.save_activity(
+        activity={"id": "2", "distance": 10000, "start_date_local": "2026-10-21T00:00:00"},
+        athlete_id="ath_2",
+        athlete_name="Ath 2",
+        clubs=["club_b"],
+    )
+
+    activities = db.get_all_activities()
+    assert len(activities) == 2
+    ids = {a["activity_id"] for a in activities}
+    assert ids == {"1", "2"}

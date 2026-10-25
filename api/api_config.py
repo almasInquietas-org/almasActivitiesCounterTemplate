@@ -15,18 +15,19 @@ INTERVALS_CLIENT_SECRET: str = os.environ.get("INTERVALS_CLIENT_SECRET", "")
 INTERVALS_WEBHOOK_SECRET: str = os.environ.get("INTERVALS_WEBHOOK_SECRET", "")
 
 # Dashboard & Business Logic
-GOAL_KM: float | None = float(os.environ["GOAL_KM"]) if os.environ.get("GOAL_KM") else None
-LAST_ACT: int = int(os.environ.get("LAST_ACT"))
-TITLE: str = os.environ.get("TITLE")
+GOAL_KM: float | None = float(os.environ["GOAL_KM"]) if os.environ.get("GOAL_KM") else 500.0
+LAST_ACT: int = int(os.environ.get("LAST_ACT", "10"))
+TITLE: str = os.environ.get("TITLE", "Almas Inquietas Activities")
+_checkpoints_env: str = os.environ.get("CHECKPOINTS", "")
 CHECKPOINTS: list[float] = [
     float(cp.strip())
-    for cp in os.environ.get("CHECKPOINTS").split(",")
+    for cp in _checkpoints_env.split(",")
     if cp.strip()
 ]
-ACT_TYPE_FILTER: str = os.environ.get("ACT_TYPE_FILTER")
-ACT_TITLE_FILTER: str = os.environ.get("ACT_TITLE_FILTER")
-START_DATE: str = os.environ.get("START_DATE")
-CLUB_FILTER: str = os.environ.get("CLUB_FILTER")
+ACT_TYPE_FILTER: str = os.environ.get("ACT_TYPE_FILTER", "")
+ACT_TITLE_FILTER: str = os.environ.get("ACT_TITLE_FILTER", "")
+START_DATE: str = os.environ.get("START_DATE", "")
+CLUB_FILTER: str = os.environ.get("CLUB_FILTER", "")
 
 # Security & Auth
 API_KEY: str = os.environ.get("API_KEY")

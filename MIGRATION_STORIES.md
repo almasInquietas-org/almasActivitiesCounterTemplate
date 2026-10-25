@@ -133,9 +133,9 @@ To allow any model (including fast/low-cost models) to implement each story in s
 3. Unit tests in `tests/test_db.py` and `tests/test_services.py` verify idempotency, club filtering, and collision-free athlete ranking.
 
 #### Technical Tasks
-- [ ] Implement `save_activity()` and `get_all_activities()` in `api/db.py`.
-- [ ] Update `build_dashboard_data()` in `api/services.py` to support `athlete_id` grouping and optional `club_filter`.
-- [ ] Write unit tests in `tests/test_db.py` and `tests/test_services.py`.
+- [x] Implement `save_activity()` and `get_all_activities()` in `api/db.py`.
+- [x] Update `build_dashboard_data()` in `api/services.py` to support `athlete_id` grouping and optional `club_filter`.
+- [x] Write unit tests in `tests/test_db.py` and `tests/test_services.py`.
 
 ---
 
