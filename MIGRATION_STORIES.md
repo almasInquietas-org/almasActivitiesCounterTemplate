@@ -174,9 +174,9 @@ To allow any model (including fast/low-cost models) to implement each story in s
 3. Unit tests in `tests/test_backend_source.py` test valid callback, denied callback, missing code, and failed token exchange.
 
 #### Technical Tasks
-- [ ] Enhance `_parse_event()` and add `_make_html_response()` in `api/backend_source.py`.
-- [ ] Implement `_handle_oauth_callback()` in `api/backend_source.py` and wire route in local Flask runner.
-- [ ] Add unit tests in `tests/test_backend_source.py`.
+- [x] Enhance `_parse_event()` and add `_make_html_response()` in `api/backend_source.py`.
+- [x] Implement `_handle_oauth_callback()` in `api/backend_source.py` and wire route in local Flask runner.
+- [x] Add unit tests in `tests/test_backend_source.py`.
 
 ---
 
