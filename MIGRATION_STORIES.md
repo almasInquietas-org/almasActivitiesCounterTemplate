@@ -154,8 +154,8 @@ To allow any model (including fast/low-cost models) to implement each story in s
 3. Unit tests in `tests/test_intervals_oauth.py` verify custom base URL routing, 200 OK parsing, 400 Bad Request handling, and HTML rendering.
 
 #### Technical Tasks
-- [ ] Create `api/intervals_oauth.py`.
-- [ ] Write unit tests in `tests/test_intervals_oauth.py`.
+- [x] Create `api/intervals_oauth.py`.
+- [x] Write unit tests in `tests/test_intervals_oauth.py`.
 
 ---
 
