@@ -196,8 +196,8 @@ To allow any model (including fast/low-cost models) to implement each story in s
 2. Unit tests in `tests/test_backend_source.py` verify valid webhook ingestion, invalid secret (`401`), duplicate idempotency, and unknown athlete handling.
 
 #### Technical Tasks
-- [ ] Implement `_handle_webhook()` in `api/backend_source.py` and wire route in local Flask runner.
-- [ ] Write unit and E2E flow tests (Callback -> Webhook -> `GET /`) in `tests/test_backend_source.py`.
+- [x] Implement `_handle_webhook()` in `api/backend_source.py` and wire route in local Flask runner.
+- [x] Write unit and E2E flow tests (Callback -> Webhook -> `GET /`) in `tests/test_backend_source.py`.
 
 ---
 
