@@ -8,13 +8,16 @@ Routes:
   - POST /webhook        -> Ingestion of real-time ACTIVITY_UPLOADED webhooks
 """
 import base64
+import hmac
 import json
 from typing import Any
 
 from api import api_config as config
+from api import auth
 from api import db
 from api import intervals_oauth
 from api import rate_limiter
+from api import services
 from api.intervals_oauth import OAuthError
 from api.utils import DecimalEncoder
 
@@ -176,6 +179,130 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
     return _make_html_response(200, html, origin)
 
 
+def _handle_webhook(body_str: str, origin: str | None = None) -> dict[str, Any]:
+    """
+    Handles POST /webhook.
+    1. Parses JSON payload.
+    2. Verifies secret against config.INTERVALS_WEBHOOK_SECRET using hmac.compare_digest.
+    3. Iterates over events:
+       - Only processes event['type'] == 'ACTIVITY_UPLOADED' with a dict activity.
+       - Looks up athlete via db.get_athlete(athlete_id). Skips if not found.
+       - Saves activity via db.save_activity(event['activity'], athlete_id, athlete_name, clubs).
+    4. Returns 200 OK {"status": "ok", "processed": processed_count, "saved": saved_count}.
+    """
+    if not body_str:
+        return _make_response(400, {"error": "Malformed JSON: empty body"}, origin)
+
+    try:
+        payload = json.loads(body_str)
+    except Exception as e:
+        return _make_response(400, {"error": f"Malformed JSON: {e}"}, origin)
+
+    if not isinstance(payload, dict):
+        return _make_response(400, {"error": "Malformed JSON: payload must be a JSON object"}, origin)
+
+    secret = str(payload.get("secret") or "")
+    configured_secret = str(config.INTERVALS_WEBHOOK_SECRET or "")
+
+    # If webhook secret is empty/unset in config or does not match payload secret -> 401
+    if not configured_secret or not hmac.compare_digest(secret, configured_secret):
+        return _make_response(401, {"error": "Unauthorized"}, origin)
+
+    events = payload.get("events")
+    if not isinstance(events, list):
+        events = []
+
+    processed_count = 0
+    saved_count = 0
+
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+
+        if event.get("type") != "ACTIVITY_UPLOADED":
+            continue
+
+        activity_data = event.get("activity")
+        if not isinstance(activity_data, dict):
+            continue
+
+        processed_count += 1
+
+        raw_athlete_id = event.get("athlete_id")
+        if not raw_athlete_id:
+            continue
+        athlete_id = str(raw_athlete_id)
+
+        athlete = db.get_athlete(athlete_id)
+        if not athlete:
+            # Unknown athlete registered elsewhere or deleted, skip gracefully
+            continue
+
+        athlete_name = athlete.get("athlete_name", "Unknown Athlete")
+        clubs = athlete.get("clubs", [])
+
+        is_new = db.save_activity(
+            activity=activity_data,
+            athlete_id=athlete_id,
+            athlete_name=athlete_name,
+            clubs=clubs,
+        )
+        if is_new:
+            saved_count += 1
+
+    return _make_response(
+        200,
+        {
+            "status": "ok",
+            "processed": processed_count,
+            "saved": saved_count,
+        },
+        origin,
+    )
+
+
+def _handle_auth_token(headers: dict[str, str], origin: str | None = None) -> dict[str, Any]:
+    """
+    Handles POST /auth/token.
+    Performs HMAC-SHA256 handshake or passthrough if auth disabled.
+    """
+    if not auth.is_auth_enabled():
+        return _make_response(200, {"token": "passthrough", "ttl": 999999}, origin)
+
+    api_key = headers.get("x-api-key", "")
+    timestamp = headers.get("x-timestamp", "")
+    nonce = headers.get("x-nonce", "")
+    signature = headers.get("x-signature", "")
+
+    if not auth.verify_signature(api_key, timestamp, nonce, signature):
+        return _make_response(401, {"error": "Invalid signature or expired request"}, origin)
+
+    token, ttl = auth.generate_token()
+    return _make_response(200, {"token": token, "ttl": ttl}, origin)
+
+
+def _handle_dashboard(
+    headers: dict[str, str],
+    query_params: dict[str, str],
+    origin: str | None = None,
+) -> dict[str, Any]:
+    """
+    Handles GET /.
+    Verifies Bearer token if auth enabled and returns aggregated dashboard data.
+    """
+    if auth.is_auth_enabled():
+        auth_header = headers.get("authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return _make_response(401, {"error": "Missing or invalid Authorization header"}, origin)
+        token = auth_header[7:].strip()
+        if not auth.verify_token(token):
+            return _make_response(401, {"error": "Invalid or expired Bearer token"}, origin)
+
+    club_param = query_params.get("club")
+    data = services.build_dashboard_data(club_filter=club_param)
+    return _make_response(200, data, origin)
+
+
 def process_activities(event: dict[str, Any], context: object = None) -> dict[str, Any]:
     """
     Main AWS Lambda entry point for Function URLs.
@@ -188,6 +315,11 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
         path = "/"
 
     origin = parsed["headers"].get("origin")
+    client_ip = parsed["client_ip"]
+
+    # Rate limiting check
+    if rate_limiter.is_rate_limited(client_ip):
+        return _make_response(429, {"error": "Too Many Requests"}, origin)
 
     # Handle CORS preflight
     if method == "OPTIONS":
@@ -200,6 +332,18 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
     # Route: GET /oauth/callback
     if method == "GET" and path == "/oauth/callback":
         return _handle_oauth_callback(parsed["query_params"], origin)
+
+    # Route: POST /webhook
+    if method == "POST" and path == "/webhook":
+        return _handle_webhook(parsed["body"], origin)
+
+    # Route: POST /auth/token
+    if method == "POST" and path == "/auth/token":
+        return _handle_auth_token(parsed["headers"], origin)
+
+    # Route: GET /
+    if method == "GET" and path == "/":
+        return _handle_dashboard(parsed["headers"], parsed["query_params"], origin)
 
     # 404 Fallback for unhandled routes
     return _make_response(404, {"error": "Not Found", "path": path, "method": method}, origin)
