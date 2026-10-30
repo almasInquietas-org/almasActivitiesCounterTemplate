@@ -1,0 +1,53 @@
+name: Deploy PRE (ClubCounterAPI-PRE)
+
+on:
+  push:
+    branches:
+      - pre
+    paths:
+      - "api/**"
+      - ".github/workflows/deploy-pre.yaml"
+  workflow_dispatch:
+
+jobs:
+  test-and-deploy-pre:
+    name: Test & Deploy to PRE
+    runs-on: ubuntu-latest
+    environment: pre
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest "moto[dynamodb]" boto3
+
+      - name: Run full test suite before packaging
+        run: pytest tests/ -v
+
+      - name: Package zero-dependency Lambda zip
+        run: |
+          cd api
+          zip -r ../function.zip . -x "*.env*" -x "*__pycache__*" -x "*.pyc"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Deploy package to AWS Lambda (ClubCounterAPI-PRE)
+        run: |
+          aws lambda update-function-code \
+            --function-name ClubCounterAPI-PRE \
+            --zip-file fileb://function.zip \
+            --region eu-west-1
+
