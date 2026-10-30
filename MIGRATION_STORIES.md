@@ -218,10 +218,10 @@ To allow any model (including fast/low-cost models) to implement each story in s
    - Sends a valid `POST /webhook` payload to `DEV` (`localhost:5000`) or `PRE` (`ClubCounterAPI-PRE` URL) to demonstrate real-time leaderboard and kilometer updates live during a client call.
 
 #### Technical Tasks
-- [ ] Create `mocks/docker-compose.yml` and WireMock JSON mapping files (`oauth-authorize.json`, `oauth-token.json`).
-- [ ] Create `scripts/seed_demo_data.py` with realistic Spanish club athlete names and activities.
-- [ ] Create `scripts/simulate_webhook.py` CLI tool.
-- [ ] Test local end-to-end flow against the local WireMock container.
+- [x] Create `mocks/docker-compose.yml` and WireMock JSON mapping files (`oauth-authorize.json`, `oauth-token.json`).
+- [x] Create `scripts/seed_demo_data.py` with realistic Spanish club athlete names and activities.
+- [x] Create `scripts/simulate_webhook.py` CLI tool.
+- [x] Test local end-to-end flow against the local WireMock container.
 
 ---
 
