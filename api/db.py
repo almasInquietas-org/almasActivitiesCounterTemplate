@@ -83,8 +83,12 @@ def save_activity(
     Uses ConditionExpression='attribute_not_exists(activity_id)'.
     Returns True if newly inserted, False if already exists.
     """
+    raw_id = activity.get("id")
+    if raw_id is None or str(raw_id).strip() == "":
+        raise ValueError("Activity missing valid 'id'")
+
     table = get_activities_table()
-    activity_id = str(activity.get("id"))
+    activity_id = str(raw_id).strip()
 
     # Convert distance to km (Intervals.icu reports meters in 'distance')
     if "distance_km" in activity:

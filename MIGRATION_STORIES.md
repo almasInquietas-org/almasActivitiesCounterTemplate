@@ -78,14 +78,13 @@ To allow any model (including fast/low-cost models) to implement each story in s
 
 #### Acceptance Criteria
 1. New repository structure contains `api/`, `frontend/`, `mocks/`, `scripts/`, `tests/`, and `.github/workflows/`.
-2. `api/api_config.py` defines:
-   - `ATHLETES_TABLE_NAME` (default `'ATHLETES_DEV'`)
-   - `ACTIVITIES_TABLE_NAME` (default `'ACTIVITIES_DEV'`)
-   - `INTERVALS_OAUTH_BASE_URL` (default `'https://intervals.icu'`, overridable to `http://localhost:8089` in DEV or WireMock Cloud URL in PRE)
+2. `api/api_config.py` defines configuration parsed strictly from environment variables without hardcoded fallback values:
+   - `ATHLETES_TABLE_NAME`, `ACTIVITIES_TABLE_NAME`
+   - `INTERVALS_OAUTH_BASE_URL` (configured via env var for WireMock / Cloud switching)
    - `INTERVALS_CLIENT_ID`, `INTERVALS_CLIENT_SECRET`, `INTERVALS_WEBHOOK_SECRET`
    - Dashboard & auth config (`GOAL_KM`, `LAST_ACT`, `TITLE`, `CHECKPOINTS`, `ACT_TYPE_FILTER`, `ACT_TITLE_FILTER`, `START_DATE`, `CLUB_FILTER`, `API_KEY`, `API_SIGNING_SECRET`, `AUTH_TOLERANCE_SECONDS`, `TOKEN_TTL_SECONDS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`, `CORS_ALLOWED_ORIGINS`).
 3. `api/auth.py`, `api/rate_limiter.py`, and `api/utils.py` (`DecimalEncoder`) are implemented per Section 6 of `MIGRATION_PLAN.md`.
-4. `tests/conftest.py` sets up mocked `ATHLETES_DEV` (PK: `athlete_id`) and `ACTIVITIES_DEV` (PK: `activity_id`) tables in `moto`.
+4. `tests/conftest.py` sets up mocked `ATHLETES_DEV` (PK: `athlete_id`) and `ACTIVITIES_DEV` (PK: `activity_id`) tables in `moto`, with an autouse fixture initializing clean state and test configuration.
 5. Unit tests in `test_auth.py`, `test_rate_limiter.py`, and `test_api_config.py` pass 100%.
 
 #### Technical Tasks

@@ -224,7 +224,11 @@ The existing `frontend/src/apiAuth.js` uses a two-step HMAC-SHA256 → Bearer to
 
 ## 7. Environment Variables (`ClubCounterAPI-PRE` & `ClubCounterAPI-PROD`)
 
-| Variable | `DEV / QA` Default | `PRE` Value | `PROD` Value |
+> [!IMPORTANT]
+> **No Default Environment Fallbacks in Code:**
+> `api/api_config.py` does not provide hardcoded default strings or numbers for configuration variables. All values must be explicitly injected via AWS Lambda environment variables, `.env` file, or CI/CD pipelines.
+
+| Variable | `DEV / QA` Value | `PRE` Value | `PROD` Value |
 |---|---|---|---|
 | `AWS_REGION` | `eu-west-1` | `eu-west-1` | `eu-west-1` |
 | `ATHLETES_TABLE_NAME` | `ATHLETES_DEV` | `ATHLETES_PRE` | `ATHLETES_PROD` |

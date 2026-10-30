@@ -451,3 +451,89 @@ def test_e2e_flow_callback_webhook_and_dashboard(dynamodb_mock, monkeypatch):
     assert dash_data["top_athletes"][0]["athlete_name"] == "Daniel F."
     assert dash_data["top_athletes"][0]["currentKm"] == 45.5
 
+
+def test_options_cors_preflight():
+    from api.backend_source import process_activities
+    event = make_v2_event(method="OPTIONS", raw_path="/")
+    res = process_activities(event, None)
+    assert res["statusCode"] == 204
+    assert res["headers"]["Access-Control-Allow-Methods"] == "GET,POST,OPTIONS"
+
+
+def test_auth_token_and_protected_dashboard(dynamodb_mock, monkeypatch):
+    import time
+    import hmac
+    import hashlib
+    from api.backend_source import process_activities
+    from api import api_config as cfg
+
+    monkeypatch.setattr(cfg, "API_KEY", "secret-api-key")
+    monkeypatch.setattr(cfg, "API_SIGNING_SECRET", "secret-signing-key")
+    monkeypatch.setattr(cfg, "AUTH_TOLERANCE_SECONDS", 300)
+    monkeypatch.setattr(cfg, "TOKEN_TTL_SECONDS", 300)
+
+    # 1. Invalid signature on /auth/token
+    bad_auth_event = make_v2_event(
+        method="POST",
+        raw_path="/auth/token",
+        headers={"x-api-key": "secret-api-key", "x-signature": "wrong"}
+    )
+    res_bad = process_activities(bad_auth_event, None)
+    assert res_bad["statusCode"] == 401
+
+    # 2. Valid signature on /auth/token
+    now_ts = str(time.time())
+    nonce = "test-nonce-123"
+    msg = f"{now_ts}.{nonce}".encode("utf-8")
+    valid_sig = hmac.new(b"secret-signing-key", msg, hashlib.sha256).hexdigest()
+
+    good_auth_event = make_v2_event(
+        method="POST",
+        raw_path="/auth/token",
+        headers={
+            "x-api-key": "secret-api-key",
+            "x-timestamp": now_ts,
+            "x-nonce": nonce,
+            "x-signature": valid_sig,
+        }
+    )
+    res_token = process_activities(good_auth_event, None)
+    assert res_token["statusCode"] == 200
+    token_body = json.loads(res_token["body"])
+    token = token_body["token"]
+
+    # 3. Request GET / without token -> 401
+    unauth_dash = make_v2_event(method="GET", raw_path="/")
+    res_unauth = process_activities(unauth_dash, None)
+    assert res_unauth["statusCode"] == 401
+
+    # 4. Request GET / with valid Bearer token -> 200
+    auth_dash = make_v2_event(
+        method="GET",
+        raw_path="/",
+        headers={"authorization": f"Bearer {token}"}
+    )
+    res_auth = process_activities(auth_dash, None)
+    assert res_auth["statusCode"] == 200
+
+
+def test_rate_limiting_route(dynamodb_mock, monkeypatch):
+    from api.backend_source import process_activities
+    from api import api_config as cfg
+
+    monkeypatch.setattr(cfg, "RATE_LIMIT_MAX", 2)
+    monkeypatch.setattr(cfg, "RATE_LIMIT_WINDOW", 60)
+
+    event = make_v2_event(method="GET", raw_path="/", source_ip="203.0.113.1")
+    assert process_activities(event, None)["statusCode"] == 200
+    assert process_activities(event, None)["statusCode"] == 200
+    assert process_activities(event, None)["statusCode"] == 429
+
+
+def test_not_found_route():
+    from api.backend_source import process_activities
+    event = make_v2_event(method="GET", raw_path="/nonexistent")
+    res = process_activities(event, None)
+    assert res["statusCode"] == 404
+
+
