@@ -1,0 +1,49 @@
+{
+  "mappings": [
+    {
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPath": "/api/oauth/token",
+        "bodyPatterns": [
+          {
+            "contains": "code=invalid"
+          }
+        ]
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "error": "invalid_grant",
+          "error_description": "Authorization code is invalid or expired"
+        }
+      }
+    },
+    {
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/api/oauth/token"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "token_type": "Bearer",
+          "access_token": "mock-access-token-demo-99999",
+          "scope": "ACTIVITY:READ",
+          "athlete": {
+            "id": "i_demo_01",
+            "name": "Daniel Fernandez"
+          }
+        }
+      }
+    }
+  ]
+}
+

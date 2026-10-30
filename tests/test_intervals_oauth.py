@@ -127,7 +127,7 @@ def test_exchange_code_for_token_missing_fields(monkeypatch):
     with patch("urllib.request.urlopen", return_value=mock_resp):
         with pytest.raises(OAuthError) as exc_info:
             exchange_code_for_token("code123")
-        assert "athlete" in str(exc_info.value)
+        assert "athlete" in str(exc_info.value).lower()
 
 
 def test_render_callback_html_success():

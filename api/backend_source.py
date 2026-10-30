@@ -126,11 +126,16 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
     error_param = query_params.get("error")
     code = query_params.get("code")
 
-    if error_param == "access_denied":
+    if error_param:
+        msg = (
+            "Access was denied by the user. Authorization was cancelled."
+            if error_param == "access_denied"
+            else f"Authorization failed: {error_param}"
+        )
         html = intervals_oauth.render_callback_html(
             success=False,
             club_id=club_id,
-            error_msg="Access was denied by the user. Authorization was cancelled.",
+            error_msg=msg,
         )
         return _make_html_response(400, html, origin)
 
@@ -224,6 +229,10 @@ def _handle_webhook(body_str: str, origin: str | None = None) -> dict[str, Any]:
 
         activity_data = event.get("activity")
         if not isinstance(activity_data, dict):
+            continue
+
+        raw_activity_id = activity_data.get("id")
+        if raw_activity_id is None or str(raw_activity_id).strip() == "":
             continue
 
         processed_count += 1
@@ -383,5 +392,7 @@ if __name__ == "__main__":
             flask_res.headers[h_k] = h_v
         return flask_res
 
-    print("Starting local development server on http://localhost:8080...")
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    import os
+    port = int(os.environ.get("PORT", "5000"))
+    print(f"Starting local development server on http://localhost:{port}...")
+    app.run(host="0.0.0.0", port=port, debug=True)

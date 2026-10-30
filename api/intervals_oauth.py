@@ -79,16 +79,16 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
     athlete = data.get("athlete")
 
     if not access_token:
-        raise OAuthError(f"Response missing access_token: {data}")
+        raise OAuthError("Response missing access_token from OAuth endpoint")
 
     if not isinstance(athlete, dict):
-        raise OAuthError(f"Response missing or invalid athlete object: {data}")
+        raise OAuthError("Response missing or invalid athlete object from OAuth endpoint")
 
     athlete_id = athlete.get("id")
     athlete_name = athlete.get("name") or "Athlete"
 
     if athlete_id is None:
-        raise OAuthError(f"Athlete object missing id: {athlete}")
+        raise OAuthError("Athlete object missing id from OAuth endpoint")
 
     return {
         "access_token": str(access_token),
@@ -184,7 +184,6 @@ def render_callback_html(
     }}
 
     * {{
-      box-init: border-box;
       box-sizing: border-box;
       margin: 0;
       padding: 0;

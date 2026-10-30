@@ -1,23 +1,30 @@
 """
-api_config.py - Environment variable configuration with defaults for DEV, PRE, and PROD.
+api_config.py - Environment variable configuration without default setups.
+All configuration is loaded directly from environment variables.
 """
 import os
 
 # AWS / DynamoDB
-AWS_REGION: str = os.environ.get("AWS_REGION", "eu-west-1")
-ATHLETES_TABLE_NAME: str = os.environ.get("ATHLETES_TABLE_NAME", "ATHLETES_DEV")
-ACTIVITIES_TABLE_NAME: str = os.environ.get("ACTIVITIES_TABLE_NAME", "ACTIVITIES_DEV")
+AWS_REGION: str = os.environ.get("AWS_REGION", "")
+ATHLETES_TABLE_NAME: str = os.environ.get("ATHLETES_TABLE_NAME", "")
+ACTIVITIES_TABLE_NAME: str = os.environ.get("ACTIVITIES_TABLE_NAME", "")
 
 # Intervals.icu OAuth & Webhooks
-INTERVALS_OAUTH_BASE_URL: str = os.environ.get("INTERVALS_OAUTH_BASE_URL", "https://intervals.icu")
+INTERVALS_OAUTH_BASE_URL: str = os.environ.get("INTERVALS_OAUTH_BASE_URL", "")
 INTERVALS_CLIENT_ID: str = os.environ.get("INTERVALS_CLIENT_ID", "")
 INTERVALS_CLIENT_SECRET: str = os.environ.get("INTERVALS_CLIENT_SECRET", "")
 INTERVALS_WEBHOOK_SECRET: str = os.environ.get("INTERVALS_WEBHOOK_SECRET", "")
 
 # Dashboard & Business Logic
-GOAL_KM: float | None = float(os.environ["GOAL_KM"]) if os.environ.get("GOAL_KM") else 500.0
-LAST_ACT: int = int(os.environ.get("LAST_ACT", "10"))
-TITLE: str = os.environ.get("TITLE", "Almas Inquietas Activities")
+_goal_env: str = os.environ.get("GOAL_KM", "").strip()
+GOAL_KM: float | None = (
+    float(_goal_env)
+    if _goal_env and _goal_env.lower() not in ("none", "null", "0")
+    else None
+)
+_last_act_env: str = os.environ.get("LAST_ACT", "").strip()
+LAST_ACT: int = int(_last_act_env) if _last_act_env else 0
+TITLE: str = os.environ.get("TITLE", "")
 _checkpoints_env: str = os.environ.get("CHECKPOINTS", "")
 CHECKPOINTS: list[float] = [
     float(cp.strip())
@@ -30,15 +37,20 @@ START_DATE: str = os.environ.get("START_DATE", "")
 CLUB_FILTER: str = os.environ.get("CLUB_FILTER", "")
 
 # Security & Auth
-API_KEY: str = os.environ.get("API_KEY")
-API_SIGNING_SECRET: str = os.environ.get("API_SIGNING_SECRET")
-AUTH_TOLERANCE_SECONDS: int = int(os.environ.get("AUTH_TOLERANCE_SECONDS", "300"))
-TOKEN_TTL_SECONDS: int = int(os.environ.get("TOKEN_TTL_SECONDS", "300"))
+API_KEY: str = os.environ.get("API_KEY", "")
+API_SIGNING_SECRET: str = os.environ.get("API_SIGNING_SECRET", "")
+_tolerance_env: str = os.environ.get("AUTH_TOLERANCE_SECONDS", "").strip()
+AUTH_TOLERANCE_SECONDS: int = int(_tolerance_env) if _tolerance_env else 0
+_ttl_env: str = os.environ.get("TOKEN_TTL_SECONDS", "").strip()
+TOKEN_TTL_SECONDS: int = int(_ttl_env) if _ttl_env else 0
 
 # Rate Limiter
-RATE_LIMIT_MAX: int = int(os.environ.get("RATE_LIMIT_MAX", "30"))
-RATE_LIMIT_WINDOW: int = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
+_limit_max_env: str = os.environ.get("RATE_LIMIT_MAX", "").strip()
+RATE_LIMIT_MAX: int = int(_limit_max_env) if _limit_max_env else 0
+_limit_window_env: str = os.environ.get("RATE_LIMIT_WINDOW", "").strip()
+RATE_LIMIT_WINDOW: int = int(_limit_window_env) if _limit_window_env else 0
 
 # CORS
-_cors_env: str = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
+_cors_env: str = os.environ.get("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
+

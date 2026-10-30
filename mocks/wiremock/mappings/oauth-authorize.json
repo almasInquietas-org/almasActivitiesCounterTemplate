@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/oauth/authorize",
+    "queryParameters": {
+      "client_id": {
+        "matches": ".*"
+      },
+      "redirect_uri": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 302,
+    "headers": {
+      "Location": "{{request.query.redirect_uri}}?code=demo_code_daniel&state={{request.query.state}}"
+    }
+  }
+}
+

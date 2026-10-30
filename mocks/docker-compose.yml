@@ -1,0 +1,12 @@
+services:
+  wiremock:
+    image: wiremock/wiremock:latest
+    container_name: wiremock-intervals
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./wiremock:/home/wiremock
+    command:
+      - --global-response-templating
+      - --verbose
+

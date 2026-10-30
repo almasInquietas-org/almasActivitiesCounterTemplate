@@ -166,7 +166,7 @@ function LeaderboardSection({ topAthletes }) {
             const medal = getMedal(rank);
             return (
               <div
-                key={athlete.athlete_name}
+                key={athlete.athlete_id || `${athlete.athlete_name}-${rank}`}
                 className={`athlete-row ${rank <= 3 ? `top-${rank}` : ''}`}
                 id={`athlete-row-${rank}`}
               >
@@ -229,7 +229,9 @@ function App() {
       const headers = { 'Content-Type': 'application/json' };
       if (authHeader) headers['Authorization'] = authHeader;
 
-      let response = await fetch(API_URL, { headers });
+      const currentSearch = window.location.search || '';
+      const requestUrl = currentSearch ? `${API_URL}${API_URL.includes('?') ? '&' : '?'}${currentSearch.replace(/^\?/, '')}` : API_URL;
+      let response = await fetch(requestUrl, { headers });
 
       // If 401, the cached token might be stale (e.g. server restarted).
       // Clear cache and retry exactly once.
@@ -239,7 +241,7 @@ function App() {
         const freshAuthHeader = await getAuthHeader(API_URL);
         const freshHeaders = { 'Content-Type': 'application/json' };
         if (freshAuthHeader) freshHeaders['Authorization'] = freshAuthHeader;
-        response = await fetch(API_URL, { headers: freshHeaders });
+        response = await fetch(requestUrl, { headers: freshHeaders });
       }
 
       if (!response.ok) {

@@ -21,12 +21,13 @@ def _matches_filters(
         if target_club not in clubs:
             return False
 
-    # 2. Activity type / sport_type filter
+    # 2. Activity type / sport_type filter (supports comma-separated list of types)
     act_type_filter = (config.ACT_TYPE_FILTER or "").strip().lower()
     if act_type_filter:
+        allowed_types = {t.strip() for t in act_type_filter.split(",") if t.strip()}
         act_type = str(activity.get("type") or "").strip().lower()
         sport_type = str(activity.get("sport_type") or "").strip().lower()
-        if act_type_filter != act_type and act_type_filter != sport_type:
+        if act_type not in allowed_types and sport_type not in allowed_types:
             return False
 
     # 3. Title filter (substring exclusion, case-insensitive)
@@ -120,6 +121,7 @@ def build_dashboard_data(club_filter: str | None = None) -> dict:
         last_increment = sorted_user_acts[0]["distance_km"] if sorted_user_acts else 0.0
 
         top_athletes.append({
+            "athlete_id": ath_id,
             "athlete_name": stat["athlete_name"],
             "currentKm": round(stat["currentKm"], 2),
             "lastIncrement": round(last_increment, 2),
