@@ -130,7 +130,7 @@ def get_tables(env: str):
         print("❌ CRITICAL SAFETY ERROR: Refusing to seed or reset PRODUCTION tables!", file=sys.stderr)
         sys.exit(1)
 
-    region = os.environ.get("AWS_REGION", "eu-west-1")
+    region = os.environ.get("AWS_REGION", "eu-north-1")
     dynamodb = boto3.resource("dynamodb", region_name=region)
     return dynamodb.Table(ATHLETES_TABLE_NAME), dynamodb.Table(ACTIVITIES_TABLE_NAME)
 

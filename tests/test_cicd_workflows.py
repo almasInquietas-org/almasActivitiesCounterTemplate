@@ -65,7 +65,7 @@ def test_deploy_pre_workflow_clean_zip_and_lambda_target():
     assert "*__pycache__*" in content
     assert "ClubCounterAPI-PRE" in content
     assert "function-updated-v2" in content
-    assert "eu-west-1" in content
+    assert "eu-north-1" in content
     # Must not pip install into api/ package directory
     assert "pip install -t" not in content
     assert "--target" not in content
@@ -94,7 +94,7 @@ def test_deploy_prod_workflow_clean_zip_and_lambda_target():
     assert "*__pycache__*" in content
     assert "ClubCounterAPI-PROD" in content
     assert "function-updated-v2" in content
-    assert "eu-west-1" in content
+    assert "eu-north-1" in content
     assert "pip install -t" not in content
     assert "--target" not in content
 
@@ -118,7 +118,7 @@ def test_readme_documents_branch_protection_vercel_aws_and_demo_playbook():
     assert "API_SIGNING_SECRET" in content
     assert "VITE_API_SIGNING_SECRET" not in content
 
-    # AWS DynamoDB & Lambda provisioning in eu-west-1
+    # AWS DynamoDB & Lambda provisioning in eu-north-1
     for resource in (
         "ATHLETES_PRE",
         "ACTIVITIES_PRE",
@@ -126,7 +126,7 @@ def test_readme_documents_branch_protection_vercel_aws_and_demo_playbook():
         "ACTIVITIES_PROD",
         "ClubCounterAPI-PRE",
         "ClubCounterAPI-PROD",
-        "eu-west-1",
+        "eu-north-1",
     ):
         assert resource in content, f"README.md missing documentation for {resource}"
 
