@@ -6,7 +6,7 @@ Real-time multi-club activity counter and leaderboard powered by **Intervals.icu
 
 ## 1. 3-Environment Architecture (`DEV/QA`, `PRE`, `PROD`)
 
-All cloud resources reside in **`eu-west-1` (Ireland)** using environment suffixes (`_PRE`, `_PROD`).
+All cloud resources reside in **`eu-north-1` (Stockholm)** using environment suffixes (`_PRE`, `_PROD`).
 
 | Dimension | `DEV / QA` | `PRE` (Pre-Production / Client Demo) | `PROD` (Production) |
 |---|---|---|---|
@@ -19,10 +19,10 @@ All cloud resources reside in **`eu-west-1` (Ireland)** using environment suffix
 
 ---
 
-## 2. AWS Provisioning (`eu-west-1`)
+## 2. AWS Provisioning (`eu-north-1`)
 
 ### 2.1 DynamoDB Tables
-Provision 4 tables in `eu-west-1` (On-Demand / `PAY_PER_REQUEST` billing):
+Provision 4 tables in `eu-north-1` (On-Demand / `PAY_PER_REQUEST` billing):
 
 ```bash
 # PRE Environment Tables
@@ -31,14 +31,14 @@ aws dynamodb create-table \
   --attribute-definitions AttributeName=athlete_id,AttributeType=S \
   --key-schema AttributeName=athlete_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
-  --region eu-west-1
+  --region eu-north-1
 
 aws dynamodb create-table \
   --table-name ACTIVITIES_PRE \
   --attribute-definitions AttributeName=activity_id,AttributeType=S \
   --key-schema AttributeName=activity_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
-  --region eu-west-1
+  --region eu-north-1
 
 # PROD Environment Tables
 aws dynamodb create-table \
@@ -46,14 +46,14 @@ aws dynamodb create-table \
   --attribute-definitions AttributeName=athlete_id,AttributeType=S \
   --key-schema AttributeName=athlete_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
-  --region eu-west-1
+  --region eu-north-1
 
 aws dynamodb create-table \
   --table-name ACTIVITIES_PROD \
   --attribute-definitions AttributeName=activity_id,AttributeType=S \
   --key-schema AttributeName=activity_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
-  --region eu-west-1
+  --region eu-north-1
 ```
 
 ### 2.2 AWS Lambda Functions (`ClubCounterAPI-PRE` & `ClubCounterAPI-PROD`)
@@ -63,7 +63,7 @@ aws dynamodb create-table \
 
 | Variable | `ClubCounterAPI-PRE` (`PRE`) | `ClubCounterAPI-PROD` (`PROD`) |
 |---|---|---|
-| `AWS_REGION` | `eu-west-1` | `eu-west-1` |
+| `AWS_REGION` | `eu-north-1` | `eu-north-1` |
 | `ATHLETES_TABLE_NAME` | `ATHLETES_PRE` | `ATHLETES_PROD` |
 | `ACTIVITIES_TABLE_NAME` | `ACTIVITIES_PRE` | `ACTIVITIES_PROD` |
 | `INTERVALS_OAUTH_BASE_URL` | `https://<mock>.wiremockapi.cloud` | `https://intervals.icu` |
@@ -103,7 +103,7 @@ Connect the repository to **Vercel** with Root Directory set to `frontend`:
 | Setting / Env Var | Vercel Preview (`pre` branch -> `PRE`) | Vercel Production (`main` branch -> `PROD`) |
 |---|---|---|
 | **Git Branch** | `pre` | `main` |
-| `VITE_API_URL` | `https://<pre-lambda-url>.lambda-url.eu-west-1.on.aws` | `https://<prod-lambda-url>.lambda-url.eu-west-1.on.aws` |
+| `VITE_API_URL` | `https://<pre-lambda-url>.lambda-url.eu-north-1.on.aws` | `https://<prod-lambda-url>.lambda-url.eu-north-1.on.aws` |
 | `VITE_API_KEY` | `<pre-api-key>` (or empty for passthrough) | `<prod-api-key>` |
 | `API_SIGNING_SECRET` *(Server-only)* | `<pre-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) | `<prod-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) |
 

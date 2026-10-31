@@ -45,15 +45,15 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
+          aws-region: eu-north-1
 
       - name: Deploy package to AWS Lambda (ClubCounterAPI-PRE)
         run: |
           aws lambda update-function-code \
             --function-name ClubCounterAPI-PRE \
             --zip-file fileb://function.zip \
-            --region eu-west-1
+            --region eu-north-1
           aws lambda wait function-updated-v2 \
             --function-name ClubCounterAPI-PRE \
-            --region eu-west-1
+            --region eu-north-1
 
