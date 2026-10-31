@@ -12,16 +12,18 @@ README_PATH = "README.md"
 
 
 def _read_file(path: str) -> str:
+    """Read and return the UTF-8 contents of a repository file after asserting it exists."""
     assert os.path.exists(path), f"Expected file {path} to exist"
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
 
 # ---------------------------------------------------------------------------
-# AC 1: .github/workflows/ci-qa.yaml (DEV/QA)
+# .github/workflows/ci-qa.yaml (DEV/QA)
 # ---------------------------------------------------------------------------
 
 def test_ci_qa_workflow_exists_and_triggers_on_pr_to_pre_and_main():
+    """Verify ci-qa.yaml triggers on PRs to pre and main and declares read-only permissions."""
     content = _read_file(CI_QA_PATH)
     assert "pull_request" in content
     assert "pre" in content
@@ -31,6 +33,7 @@ def test_ci_qa_workflow_exists_and_triggers_on_pr_to_pre_and_main():
 
 
 def test_ci_qa_workflow_runs_pytest_wiremock_and_frontend_build():
+    """Verify ci-qa.yaml runs pytest, WireMock OAuth check, and frontend build."""
     content = _read_file(CI_QA_PATH)
     assert "pytest tests/ -v" in content
     assert "wiremock" in content.lower()
@@ -40,10 +43,11 @@ def test_ci_qa_workflow_runs_pytest_wiremock_and_frontend_build():
 
 
 # ---------------------------------------------------------------------------
-# AC 2: .github/workflows/deploy-pre.yaml (PRE)
+# .github/workflows/deploy-pre.yaml (PRE)
 # ---------------------------------------------------------------------------
 
 def test_deploy_pre_workflow_triggers_and_tests_before_deploy():
+    """Verify deploy-pre.yaml triggers on push to pre, sets read-only permissions, and runs pytest."""
     content = _read_file(DEPLOY_PRE_PATH)
     assert "push:" in content
     assert "pre" in content
@@ -53,6 +57,7 @@ def test_deploy_pre_workflow_triggers_and_tests_before_deploy():
 
 
 def test_deploy_pre_workflow_clean_zip_and_lambda_target():
+    """Verify deploy-pre.yaml packages a zero-dependency zip and waits for ClubCounterAPI-PRE update."""
     content = _read_file(DEPLOY_PRE_PATH)
     assert "cd api" in content
     assert "zip -r ../function.zip ." in content
@@ -67,10 +72,11 @@ def test_deploy_pre_workflow_clean_zip_and_lambda_target():
 
 
 # ---------------------------------------------------------------------------
-# AC 3: .github/workflows/deploy-prod.yaml (PROD)
+# .github/workflows/deploy-prod.yaml (PROD)
 # ---------------------------------------------------------------------------
 
 def test_deploy_prod_workflow_triggers_and_tests_before_deploy():
+    """Verify deploy-prod.yaml triggers on push to main, sets read-only permissions, and runs pytest."""
     content = _read_file(DEPLOY_PROD_PATH)
     assert "push:" in content
     assert "main" in content
@@ -80,6 +86,7 @@ def test_deploy_prod_workflow_triggers_and_tests_before_deploy():
 
 
 def test_deploy_prod_workflow_clean_zip_and_lambda_target():
+    """Verify deploy-prod.yaml packages a zero-dependency zip and waits for ClubCounterAPI-PROD update."""
     content = _read_file(DEPLOY_PROD_PATH)
     assert "cd api" in content
     assert "zip -r ../function.zip ." in content
@@ -93,10 +100,11 @@ def test_deploy_prod_workflow_clean_zip_and_lambda_target():
 
 
 # ---------------------------------------------------------------------------
-# AC 4: README.md Documentation
+# README.md Documentation
 # ---------------------------------------------------------------------------
 
 def test_readme_documents_branch_protection_vercel_aws_and_demo_playbook():
+    """Verify README.md documents branch protection, Vercel env vars, AWS provisioning, and demo scripts."""
     content = _read_file(README_PATH)
     # Branch protection & CI status check
     assert "main" in content
@@ -125,4 +133,3 @@ def test_readme_documents_branch_protection_vercel_aws_and_demo_playbook():
     # Demo playbook scripts
     assert "seed_demo_data.py" in content
     assert "simulate_webhook.py" in content
-

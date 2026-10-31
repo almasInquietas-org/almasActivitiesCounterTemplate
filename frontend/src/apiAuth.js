@@ -21,6 +21,11 @@ const TTL_SAFETY_BUFFER_S = 30; // Refresh token 30s before it expires
 // Auth mode detection
 // ---------------------------------------------------------------------------
 
+/**
+ * Checks whether client-side API authentication is enabled based on `VITE_API_KEY`.
+ *
+ * @returns {boolean} True when `VITE_API_KEY` is configured, false for passthrough mode.
+ */
 export function isAuthEnabled() {
   return Boolean(API_KEY);
 }
@@ -29,6 +34,12 @@ export function isAuthEnabled() {
 // Token caching
 // ---------------------------------------------------------------------------
 
+/**
+ * Retrieves a valid cached Bearer token from `sessionStorage` if it has not
+ * entered the pre-expiration safety buffer window.
+ *
+ * @returns {string|null} The cached Bearer token string, or null if missing/expired.
+ */
 function getCachedToken() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
@@ -44,6 +55,13 @@ function getCachedToken() {
   }
 }
 
+/**
+ * Stores a Bearer token and its computed expiration timestamp in `sessionStorage`.
+ *
+ * @param {string} token - The Bearer token issued by the API.
+ * @param {number} ttlSeconds - Token time-to-live in seconds.
+ * @returns {void}
+ */
 function cacheToken(token, ttlSeconds) {
   try {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({
@@ -59,14 +77,19 @@ function cacheToken(token, ttlSeconds) {
 // Token request (delegates HMAC signing to server-side /api/token)
 // ---------------------------------------------------------------------------
 
-async function fetchToken(apiUrl) {
+/**
+ * Requests a short-lived Bearer token from the server-side `/api/token` proxy,
+ * which signs the upstream `/auth/token` handshake using `API_SIGNING_SECRET`.
+ *
+ * @returns {Promise<{token: string, ttl: number}>} Issued token and TTL in seconds.
+ */
+async function fetchToken() {
   const response = await fetch('/api/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Api-Key': API_KEY,
     },
-    body: JSON.stringify({ apiUrl }),
   });
 
   if (!response.ok) {
@@ -85,15 +108,14 @@ async function fetchToken(apiUrl) {
  * Returns the Authorization header value for a data request.
  * Handles token caching and refresh automatically.
  *
- * @param {string} apiUrl - The base API URL
- * @returns {Promise<string|null>} "Bearer <token>" or null if auth is disabled
+ * @returns {Promise<string|null>} "Bearer <token>" or null if auth is disabled.
  */
-export async function getAuthHeader(apiUrl) {
+export async function getAuthHeader() {
   if (!isAuthEnabled()) return null;
 
   let token = getCachedToken();
   if (!token) {
-    const result = await fetchToken(apiUrl);
+    const result = await fetchToken();
     token = result.token;
     cacheToken(token, result.ttl);
   }
