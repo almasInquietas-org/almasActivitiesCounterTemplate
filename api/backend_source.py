@@ -10,7 +10,16 @@ Routes:
 import base64
 import hmac
 import json
+import sys
+from pathlib import Path
 from typing import Any
+
+# Ensure compatibility when packaged directly at the root of an AWS Lambda zip
+if 'api' not in sys.modules:
+    import types
+    _api_pkg = types.ModuleType('api')
+    _api_pkg.__path__ = [str(Path(__file__).resolve().parent)]
+    sys.modules['api'] = _api_pkg
 
 from api import api_config as config
 from api import auth
