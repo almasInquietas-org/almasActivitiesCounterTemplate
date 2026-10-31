@@ -10,12 +10,12 @@ All cloud resources reside in **`eu-west-1` (Ireland)** using environment suffix
 
 | Dimension | `DEV / QA` | `PRE` (Pre-Production / Client Demo) | `PROD` (Production) |
 |---|---|---|---|
-| **Git Branch** | `feature/*` & Pull Requests | `pre` | `master` (Protected) |
+| **Git Branch** | `feature/*` & Pull Requests | `pre` | `main` (Protected) |
 | **GitHub Workflow** | `.github/workflows/ci-qa.yaml` | `.github/workflows/deploy-pre.yaml` | `.github/workflows/deploy-prod.yaml` |
 | **Backend Compute** | Local Flask (`:5000`) & CI Runner | AWS Lambda `ClubCounterAPI-PRE` | AWS Lambda `ClubCounterAPI-PROD` |
 | **DynamoDB Tables** | `ATHLETES_DEV`, `ACTIVITIES_DEV` (`moto`) | `ATHLETES_PRE`, `ACTIVITIES_PRE` | `ATHLETES_PROD`, `ACTIVITIES_PROD` |
 | **Intervals OAuth URL** | Local WireMock (`http://localhost:8089`) | WireMock Cloud (`https://<id>.wiremockapi.cloud`) | Real Intervals.icu (`https://intervals.icu`) |
-| **Frontend Hosting** | Vite Dev (`http://localhost:5173`) | Vercel Preview (`pre` branch) | Vercel Production (`master` branch) |
+| **Frontend Hosting** | Vite Dev (`http://localhost:5173`) | Vercel Preview (`pre` branch) | Vercel Production (`main` branch) |
 
 ---
 
@@ -82,12 +82,12 @@ aws dynamodb create-table \
 
 ### 3.1 GitHub Branch Protection Rules
 Configure branch protection in **Settings → Branches** on GitHub:
-1. **Protected Branch: `master`**
+1. **Protected Branch: `main`**
    - Enable **Require a pull request before merging**.
    - Enable **Require status checks to pass before merging** and select the required status check **`ci-qa`** (from `.github/workflows/ci-qa.yaml`).
-   - Enable **Do not allow bypassing the above settings** to prevent direct pushes to `master`.
+   - Enable **Do not allow bypassing the above settings** to prevent direct pushes to `main`.
 2. **Pre-Production Branch: `pre`**
-   - Pull requests targeting `pre` also trigger `ci-qa`. Merging into `pre` automatically triggers `.github/workflows/deploy-pre.yaml` to update `ClubCounterAPI-PRE`.
+   - Pull requests targeting `pre` also trigger `ci-qa`. Merging into `pre` triggers `.github/workflows/deploy-pre.yaml` to update `ClubCounterAPI-PRE` when `api/**` or `.github/workflows/deploy-pre.yaml` changes (or via manual `workflow_dispatch`); frontend-, documentation-, or test-only changes do not deploy `ClubCounterAPI-PRE`.
 
 ### 3.2 GitHub Actions Secrets
 Add the following repository/environment secrets in **Settings → Secrets and variables → Actions**:
@@ -100,12 +100,12 @@ Add the following repository/environment secrets in **Settings → Secrets and v
 
 Connect the repository to **Vercel** with Root Directory set to `frontend`:
 
-| Setting / Env Var | Vercel Preview (`pre` branch -> `PRE`) | Vercel Production (`master` branch -> `PROD`) |
+| Setting / Env Var | Vercel Preview (`pre` branch -> `PRE`) | Vercel Production (`main` branch -> `PROD`) |
 |---|---|---|
-| **Git Branch** | `pre` | `master` |
+| **Git Branch** | `pre` | `main` |
 | `VITE_API_URL` | `https://<pre-lambda-url>.lambda-url.eu-west-1.on.aws` | `https://<prod-lambda-url>.lambda-url.eu-west-1.on.aws` |
 | `VITE_API_KEY` | `<pre-api-key>` (or empty for passthrough) | `<prod-api-key>` |
-| `VITE_API_SIGNING_SECRET` | `<pre-signing-secret>` | `<prod-signing-secret>` |
+| `API_SIGNING_SECRET` *(Server-only)* | `<pre-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) | `<prod-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) |
 
 ---
 

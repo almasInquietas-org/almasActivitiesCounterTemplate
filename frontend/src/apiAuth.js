@@ -1,20 +1,19 @@
 /**
  * ACTIVUM — Frontend Auth Module
  *
- * Implements the two-step HMAC + Bearer token auth flow from GEMINI.md §5:
+ * Implements the two-step Bearer token auth flow using server-side HMAC signing:
  *
- * Step 1: POST /auth/token with HMAC-SHA256 signed headers
+ * Step 1: POST /api/token (server-side proxy signs /auth/token with API_SIGNING_SECRET)
  * Step 2: GET / with Authorization: Bearer <token>
  *
- * Passthrough mode: if VITE_API_KEY or VITE_API_SIGNING_SECRET are not set,
- * requests are sent without auth headers (matches API passthrough mode).
+ * Passthrough mode: if VITE_API_KEY is not set, requests are sent without
+ * auth headers (matches API passthrough mode).
  *
  * Token caching: tokens are cached in sessionStorage with a 30-second
  * safety buffer before their actual expiry.
  */
 
 const API_KEY = (import.meta.env.VITE_API_KEY || '').trim();
-const API_SIGNING_SECRET = (import.meta.env.VITE_API_SIGNING_SECRET || '').trim();
 const SESSION_KEY = 'activum_auth_token';
 const TTL_SAFETY_BUFFER_S = 30; // Refresh token 30s before it expires
 
@@ -23,30 +22,7 @@ const TTL_SAFETY_BUFFER_S = 30; // Refresh token 30s before it expires
 // ---------------------------------------------------------------------------
 
 export function isAuthEnabled() {
-  return Boolean(API_KEY && API_SIGNING_SECRET);
-}
-
-// ---------------------------------------------------------------------------
-// HMAC-SHA256 signing (Web Crypto API — no external deps)
-// ---------------------------------------------------------------------------
-
-async function signHmac(secret, message) {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const msgData = encoder.encode(message);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-  return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  return Boolean(API_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -80,23 +56,17 @@ function cacheToken(token, ttlSeconds) {
 }
 
 // ---------------------------------------------------------------------------
-// Token request
+// Token request (delegates HMAC signing to server-side /api/token)
 // ---------------------------------------------------------------------------
 
 async function fetchToken(apiUrl) {
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const nonce = crypto.randomUUID();
-  const signature = await signHmac(API_SIGNING_SECRET, `${timestamp}.${nonce}`);
-
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/auth/token`, {
+  const response = await fetch('/api/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Api-Key': API_KEY,
-      'X-Timestamp': timestamp,
-      'X-Nonce': nonce,
-      'X-Signature': signature,
     },
+    body: JSON.stringify({ apiUrl }),
   });
 
   if (!response.ok) {
@@ -116,7 +86,7 @@ async function fetchToken(apiUrl) {
  * Handles token caching and refresh automatically.
  *
  * @param {string} apiUrl - The base API URL
- * @returns {string|null} "Bearer <token>" or null if auth is disabled
+ * @returns {Promise<string|null>} "Bearer <token>" or null if auth is disabled
  */
 export async function getAuthHeader(apiUrl) {
   if (!isAuthEnabled()) return null;
