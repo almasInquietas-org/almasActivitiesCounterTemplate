@@ -537,3 +537,18 @@ def test_not_found_route():
     assert res["statusCode"] == 404
 
 
+def test_request_and_response_logging(caplog):
+    import logging
+    from api.backend_source import process_activities
+
+    with caplog.at_level(logging.INFO):
+        event = make_v2_event(
+            method="GET",
+            raw_path="/oauth/callback",
+            query_params={"state": "almas"},
+        )
+        res = process_activities(event, None)
+
+    assert res["statusCode"] == 400
+    assert any("[API Request] GET /oauth/callback" in rec.message for rec in caplog.records)
+    assert any("[API Response] GET /oauth/callback -> status=400" in rec.message for rec in caplog.records)

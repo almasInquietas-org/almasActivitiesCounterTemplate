@@ -3,12 +3,16 @@ api/intervals_oauth.py - Configurable OAuth Client & Confirmation Page for Inter
 """
 import html
 import json
+import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
 
 from api import api_config as config
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class OAuthError(Exception):
@@ -40,56 +44,93 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
         "code": code,
     }).encode("utf-8")
 
+    req_headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+        "User-Agent": "AlmasActivitiesCounter/1.0",
+    }
+
+    logger.info(
+        "[OAuth Request] POST %s | client_id=%s | code=%s | headers=%s",
+        token_url,
+        config.INTERVALS_CLIENT_ID or "<empty>",
+        code,
+        json.dumps(req_headers),
+    )
+
     req = urllib.request.Request(
         url=token_url,
         data=payload_data,
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-            "User-Agent": "AlmasActivitiesCounter/1.0",
-        },
+        headers=req_headers,
         method="POST",
     )
 
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
+            status_code = getattr(response, "status", 200)
             body = response.read().decode("utf-8")
+            logger.info(
+                "[OAuth Response] HTTP %s from %s | body=%s",
+                status_code,
+                token_url,
+                body,
+            )
     except urllib.error.HTTPError as err:
         err_body = ""
         try:
             err_body = err.read().decode("utf-8")
         except Exception:
             pass
-        raise OAuthError(
-            f"OAuth token request failed with HTTP status {err.code}: {err.reason}. Response: {err_body}"
-        ) from err
+        msg = f"OAuth token request failed with HTTP status {err.code}: {err.reason}. Response: {err_body}"
+        logger.error("[OAuth Error] %s", msg)
+        raise OAuthError(msg) from err
     except urllib.error.URLError as err:
-        raise OAuthError(f"OAuth network error reaching {token_url}: {err.reason}") from err
+        msg = f"OAuth network error reaching {token_url}: {err.reason}"
+        logger.error("[OAuth Error] %s", msg)
+        raise OAuthError(msg) from err
     except Exception as err:
-        raise OAuthError(f"Unexpected error during OAuth token exchange: {err}") from err
+        msg = f"Unexpected error during OAuth token exchange: {err}"
+        logger.exception("[OAuth Error] %s", msg)
+        raise OAuthError(msg) from err
 
     try:
         data: dict[str, Any] = json.loads(body)
     except json.JSONDecodeError as err:
-        raise OAuthError(f"Invalid JSON received from OAuth token endpoint: {body}") from err
+        msg = f"Invalid JSON received from OAuth token endpoint: {body}"
+        logger.error("[OAuth Error] %s", msg)
+        raise OAuthError(msg) from err
 
     if not isinstance(data, dict):
-        raise OAuthError(f"Expected JSON object from OAuth endpoint, got {type(data).__name__}")
+        msg = f"Expected JSON object from OAuth endpoint, got {type(data).__name__}"
+        logger.error("[OAuth Error] %s", msg)
+        raise OAuthError(msg)
 
     access_token = data.get("access_token")
     athlete = data.get("athlete")
 
     if not access_token:
+        msg = f"Response missing access_token from OAuth endpoint. Raw response: {body}"
+        logger.error("[OAuth Error] %s", msg)
         raise OAuthError("Response missing access_token from OAuth endpoint")
 
     if not isinstance(athlete, dict):
+        msg = f"Response missing or invalid athlete object from OAuth endpoint. Raw response: {body}"
+        logger.error("[OAuth Error] %s", msg)
         raise OAuthError("Response missing or invalid athlete object from OAuth endpoint")
 
     athlete_id = athlete.get("id")
     athlete_name = athlete.get("name") or "Athlete"
 
     if athlete_id is None:
+        msg = f"Athlete object missing id from OAuth endpoint. Raw response: {body}"
+        logger.error("[OAuth Error] %s", msg)
         raise OAuthError("Athlete object missing id from OAuth endpoint")
+
+    logger.info(
+        "[OAuth Success] Exchanged token for athlete_id=%s athlete_name=%s",
+        athlete_id,
+        athlete_name,
+    )
 
     return {
         "access_token": str(access_token),
