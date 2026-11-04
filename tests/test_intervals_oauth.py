@@ -46,6 +46,7 @@ def test_exchange_code_for_token_success(monkeypatch):
         assert req.get_full_url() == "http://localhost:8089/api/oauth/token"
         assert req.method == "POST"
         assert req.get_header("Content-type") == "application/x-www-form-urlencoded"
+        assert req.get_header("User-agent") == "AlmasActivitiesCounter/1.0"
         data_str = req.data.decode("utf-8")
         assert "client_id=test-client-id" in data_str
         assert "client_secret=test-client-secret" in data_str
