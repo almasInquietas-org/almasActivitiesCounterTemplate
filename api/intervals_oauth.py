@@ -46,6 +46,7 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
+            "User-Agent": "AlmasActivitiesCounter/1.0",
         },
         method="POST",
     )
