@@ -1,0 +1,20 @@
+meta {
+  name: 5. Intervals OAuth Callback (Access Denied)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/oauth/callback?error=access_denied&state=ciclistas_valencia
+  body: none
+  auth: none
+}
+
+params:query {
+  error: access_denied
+  state: ciclistas_valencia
+}
+
+headers {
+  Accept: text/html
+}

@@ -1,7 +1,7 @@
 # almasActivitiesCounterTemplate — Workspace Rules
 
 ## 1. Project Overview
-Multi-club activity dashboard powered by **Intervals.icu OAuth 2.0 + Webhooks**, **AWS Lambda (Python 3.12)**, **AWS DynamoDB (`eu-west-1`)**, and **React 19 + Vite 7**.
+Multi-club activity dashboard powered by **Intervals.icu OAuth 2.0 + Webhooks**, **AWS Lambda (Python 3.12)**, **AWS DynamoDB (`eu-north-1`)**, and **React 19 + Vite 7**.
 Full architecture and API contracts are defined in `MIGRATION_PLAN.md`, and the Agile implementation backlog is in `MIGRATION_STORIES.md`.
 
 ## 2. Non-Negotiable Guardrails
@@ -19,7 +19,7 @@ Full architecture and API contracts are defined in `MIGRATION_PLAN.md`, and the 
    - Use Python standard library (`urllib.request`, `urllib.parse`, `hmac`, `hashlib`, `json`, `decimal`, `html`) for all HTTP, OAuth, and crypto logic inside `api/`. Do not import `requests` inside `api/` so Lambda zip deployments require no `pip install` step.
 4. **3-Environment Isolation (`DEV/QA`, `PRE`, `PROD`):**
    - Never hardcode table names or the Intervals.icu OAuth base URL. Always read `config.ATHLETES_TABLE_NAME`, `config.ACTIVITIES_TABLE_NAME`, and `config.INTERVALS_OAUTH_BASE_URL` from `api/api_config.py`.
-   - All AWS resources live in `eu-west-1` separated by suffixes (`_DEV`, `_PRE`, `_PROD`).
+   - All AWS resources live in `eu-north-1` separated by suffixes (`_DEV`, `_PRE`, `_PROD`).
 5. **Branch Protection & Git Discipline:**
    - `master` (`PROD`) and `pre` (`PRE`) are protected branches. Never push directly to `master`.
    - Implement each Agile story on an isolated branch (`feature/story-<N>-<short-name>`).

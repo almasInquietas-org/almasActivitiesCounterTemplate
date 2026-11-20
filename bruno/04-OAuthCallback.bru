@@ -1,0 +1,20 @@
+meta {
+  name: 4. Intervals OAuth Callback
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/oauth/callback?code=mock_code_123&state=ciclistas_valencia
+  body: none
+  auth: none
+}
+
+params:query {
+  code: mock_code_123
+  state: ciclistas_valencia
+}
+
+headers {
+  Accept: text/html
+}
