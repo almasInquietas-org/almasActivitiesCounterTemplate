@@ -1,0 +1,17 @@
+meta {
+  name: 8. CORS Preflight Options
+  type: http
+  seq: 8
+}
+
+options {
+  url: {{baseUrl}}
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: http://localhost:5173
+  Access-Control-Request-Method: GET
+  Access-Control-Request-Headers: Authorization,Content-Type
+}
