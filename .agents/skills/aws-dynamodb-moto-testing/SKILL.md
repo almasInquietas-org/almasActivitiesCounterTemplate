@@ -53,5 +53,5 @@ Support both AWS Lambda Function URL payload v1.0 and v2.0:
 - **Body:** `event.get('body') or ''` (decode base64 if `event.get('isBase64Encoded')` is `True`).
 
 ## 4. Pytest + Moto Fixture Pattern (`tests/conftest.py`)
-- Set dummy AWS credentials via `os.environ` (`AWS_ACCESS_KEY_ID='testing'`, `AWS_SECRET_ACCESS_KEY='testing'`, `AWS_DEFAULT_REGION='eu-west-1'`) **before** importing `api` modules.
+- Set dummy AWS credentials via `os.environ` (`AWS_ACCESS_KEY_ID='testing'`, `AWS_SECRET_ACCESS_KEY='testing'`, `AWS_DEFAULT_REGION='eu-north-1'`) **before** importing `api` modules.
 - Use `with mock_aws():` (from `moto`) to create both `config.ATHLETES_TABLE_NAME` (`KeySchema=[{'AttributeName': 'athlete_id', 'KeyType': 'HASH'}]`) and `config.ACTIVITIES_TABLE_NAME` (`KeySchema=[{'AttributeName': 'activity_id', 'KeyType': 'HASH'}]`) with `BillingMode='PAY_PER_REQUEST'`.

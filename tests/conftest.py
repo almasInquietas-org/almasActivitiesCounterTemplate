@@ -9,8 +9,8 @@ os.environ["AWS_ACCESS_KEY_ID"] = "testing"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
 os.environ["AWS_SECURITY_TOKEN"] = "testing"
 os.environ["AWS_SESSION_TOKEN"] = "testing"
-os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
-os.environ["AWS_REGION"] = "eu-west-1"
+os.environ["AWS_DEFAULT_REGION"] = "eu-north-1"
+os.environ["AWS_REGION"] = "eu-north-1"
 
 # Force DEV table names and test defaults for tests
 os.environ["ATHLETES_TABLE_NAME"] = "ATHLETES_DEV"
@@ -35,7 +35,7 @@ def reset_global_test_state(monkeypatch):
     auth.clear_tokens()
     rate_limiter.clear_history()
 
-    monkeypatch.setattr(config, "AWS_REGION", "eu-west-1")
+    monkeypatch.setattr(config, "AWS_REGION", "eu-north-1")
     monkeypatch.setattr(config, "ATHLETES_TABLE_NAME", "ATHLETES_DEV")
     monkeypatch.setattr(config, "ACTIVITIES_TABLE_NAME", "ACTIVITIES_DEV")
     monkeypatch.setattr(config, "INTERVALS_OAUTH_BASE_URL", "https://intervals.icu")
@@ -66,14 +66,14 @@ def aws_credentials():
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "eu-west-1"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-north-1"
 
 
 @pytest.fixture
 def dynamodb_mock(aws_credentials):
     """Provides a mocked DynamoDB resource with ATHLETES and ACTIVITIES tables initialized."""
     with mock_aws():
-        dynamodb = boto3.resource("dynamodb", region_name="eu-west-1")
+        dynamodb = boto3.resource("dynamodb", region_name="eu-north-1")
 
         # Create ATHLETES table (PK: athlete_id [String])
         athletes_table = dynamodb.create_table(
