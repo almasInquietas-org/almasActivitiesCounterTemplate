@@ -31,13 +31,15 @@ def get_athlete(athlete_id: str) -> dict | None:
 
 def save_athlete(
     athlete_id: str,
-    athlete_name: str,
+    intervals_username: str,
     access_token: str,
     club_id: str,
+    name: str | None = None,
 ) -> dict:
     """
     Creates or updates the athlete item in ATHLETES_TABLE_NAME.
-    Deduplicates club_id into the clubs list and updates access_token/updated_at.
+    Deduplicates club_id into the clubs list, preserves any existing custom
+    display name unless explicitly provided, and updates access_token/updated_at.
     Returns the stored item dictionary.
     """
     table = get_athletes_table()
@@ -52,11 +54,19 @@ def save_athlete(
     if clean_club and clean_club not in clubs:
         clubs.append(clean_club)
 
+    if name is not None and name.strip():
+        resolved_name = name.strip()
+    elif existing and str(existing.get("name") or "").strip():
+        resolved_name = str(existing["name"]).strip()
+    else:
+        resolved_name = ""
+
     now_iso = datetime.now(timezone.utc).isoformat()
 
     item = {
         "athlete_id": str(athlete_id),
-        "athlete_name": str(athlete_name),
+        "intervals_username": str(intervals_username),
+        "name": resolved_name,
         "access_token": str(access_token),
         "clubs": clubs,
         "updated_at": now_iso,
@@ -64,6 +74,53 @@ def save_athlete(
 
     table.put_item(Item=item)
     return item
+
+
+def update_athlete_name(athlete_id: str, name: str) -> dict | None:
+    """
+    Updates the athlete's custom display name ('name') in ATHLETES_TABLE_NAME.
+    Returns the updated athlete item, or None if athlete_id does not exist.
+    """
+    clean_name = (name or "").strip()
+    if not clean_name:
+        raise ValueError("Athlete name cannot be empty")
+
+    table = get_athletes_table()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        response = table.update_item(
+            Key={"athlete_id": str(athlete_id)},
+            UpdateExpression="SET #n = :name, updated_at = :updated_at",
+            ExpressionAttributeNames={"#n": "name"},
+            ExpressionAttributeValues={
+                ":name": clean_name,
+                ":updated_at": now_iso,
+            },
+            ConditionExpression="attribute_exists(athlete_id)",
+            ReturnValues="ALL_NEW",
+        )
+        return response.get("Attributes")
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            return None
+        raise
+
+
+def get_athlete_display_name(athlete: dict | None) -> str:
+    """
+    Resolves the display name for an athlete record, preferring 'name',
+    then 'intervals_username', then legacy 'athlete_name'.
+    """
+    if not athlete:
+        return "Unknown Athlete"
+
+    for key in ("name", "intervals_username", "athlete_name"):
+        val = str(athlete.get(key) or "").strip()
+        if val:
+            return val
+
+    return "Unknown Athlete"
 
 
 def get_activities_table():

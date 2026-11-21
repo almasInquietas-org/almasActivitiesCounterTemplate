@@ -94,9 +94,19 @@ def test_seed_demo_data_populates_dev(dynamodb_mock, monkeypatch):
     types = {a.get("type") for a in activities}
     assert {"Run", "Ride"}.issubset(types)
 
+    # Verify all seeded activities fall within the past 7 days
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    week_ago = now - timedelta(days=7)
+    for act in activities:
+        act_dt = datetime.strptime(act["start_date"], "%Y-%m-%dT%H:%M:%S")
+        assert week_ago <= act_dt <= now, f"Activity {act['activity_id']} date {act['start_date']} outside past 7 days"
+
     # Verify athlete lookup
     ath = db.get_athlete("i_demo_01")
     assert ath is not None
+    assert ath["intervals_username"] == "intervals_i_demo_01"
+    assert ath["name"] == "Daniel Fernández"
     assert "almas_inquietas" in ath.get("clubs", [])
 
 

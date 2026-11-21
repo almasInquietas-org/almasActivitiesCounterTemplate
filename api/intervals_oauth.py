@@ -1,9 +1,12 @@
 """
 api/intervals_oauth.py - Configurable OAuth Client & Confirmation Page for Intervals.icu
 """
+import hashlib
+import hmac
 import html
 import json
 import logging
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -30,7 +33,7 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
       - code
 
     Returns:
-        dict: {"access_token": str, "athlete_id": str, "athlete_name": str}
+        dict: {"access_token": str, "athlete_id": str, "intervals_username": str}
 
     Raises:
         OAuthError: If the HTTP request fails, returns non-200, or has missing fields.
@@ -119,7 +122,7 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
         raise OAuthError("Response missing or invalid athlete object from OAuth endpoint")
 
     athlete_id = athlete.get("id")
-    athlete_name = athlete.get("name") or "Athlete"
+    intervals_username = athlete.get("name") or "Athlete"
 
     if athlete_id is None:
         msg = f"Athlete object missing id from OAuth endpoint. Raw response: {body}"
@@ -127,16 +130,53 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
         raise OAuthError("Athlete object missing id from OAuth endpoint")
 
     logger.info(
-        "[OAuth Success] Exchanged token for athlete_id=%s athlete_name=%s",
+        "[OAuth Success] Exchanged token for athlete_id=%s intervals_username=%s",
         athlete_id,
-        athlete_name,
+        intervals_username,
     )
 
     return {
         "access_token": str(access_token),
         "athlete_id": str(athlete_id),
-        "athlete_name": str(athlete_name),
+        "intervals_username": str(intervals_username),
     }
+
+
+def _get_registration_signing_key() -> bytes:
+    """Return HMAC signing key derived from existing server secrets."""
+    secret = (
+        config.INTERVALS_CLIENT_SECRET
+        or config.API_SIGNING_SECRET
+        or config.INTERVALS_WEBHOOK_SECRET
+        or "local-dev-registration-key"
+    )
+    return secret.encode("utf-8")
+
+
+def generate_name_token(athlete_id: str, ttl_seconds: int = 1800) -> str:
+    """Generate a stateless HMAC-SHA256 token authorizing post-OAuth name submission."""
+    expires = int(time.time()) + ttl_seconds
+    message = f"{athlete_id}:{expires}".encode("utf-8")
+    sig = hmac.new(_get_registration_signing_key(), message, hashlib.sha256).hexdigest()
+    return f"{expires}.{sig}"
+
+
+def verify_name_token(athlete_id: str, token: str) -> bool:
+    """Verify the stateless HMAC-SHA256 token for post-OAuth name submission."""
+    if not athlete_id or not token or "." not in token:
+        return False
+    expires_str, sig = token.split(".", 1)
+    if not expires_str or not sig:
+        return False
+    try:
+        expires = int(expires_str)
+    except ValueError:
+        return False
+    if time.time() > expires:
+        return False
+    message = f"{athlete_id}:{expires}".encode("utf-8")
+    expected_sig = hmac.new(_get_registration_signing_key(), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected_sig, sig)
 
 
 def render_callback_html(
@@ -144,6 +184,11 @@ def render_callback_html(
     athlete_name: str = "",
     club_id: str = "",
     error_msg: str = "",
+    intervals_username: str = "",
+    athlete_id: str = "",
+    name_token: str = "",
+    show_name_form: bool = False,
+    form_error: str = "",
 ) -> str:
     """
     Render a responsive, beautifully styled HTML confirmation page matching
@@ -151,9 +196,13 @@ def render_callback_html(
 
     Variables are sanitized with html.escape() to prevent XSS.
     """
-    safe_athlete = html.escape(athlete_name or "Athlete")
-    safe_club = html.escape(club_id or "default")
-    safe_error = html.escape(error_msg or "An unexpected error occurred during authorization.")
+    safe_name = html.escape(athlete_name or "", quote=True)
+    safe_username = html.escape(intervals_username or "", quote=True)
+    safe_club = html.escape(club_id or "default", quote=True)
+    safe_athlete_id = html.escape(athlete_id or "", quote=True)
+    safe_token = html.escape(name_token or "", quote=True)
+    safe_error = html.escape(error_msg or "An unexpected error occurred during authorization.", quote=True)
+    safe_form_error = html.escape(form_error or "", quote=True)
 
     if success:
         status_badge = (
@@ -165,21 +214,52 @@ def render_callback_html(
             '</div>'
         )
         headline = "Registration Successful!"
-        description = (
-            f"Welcome aboard, <strong>{safe_athlete}</strong>!<br>"
-            f"Your Intervals.icu account is now linked to club <strong>{safe_club}</strong>. "
-            "Your uploaded activities will automatically sync to the dashboard."
-        )
-        tip_box = (
-            '<div class="tip-card">'
-            '<div class="tip-title">⚡ How it works</div>'
-            '<p class="tip-body">'
-            'Upload or sync your rides and runs to Intervals.icu from your GPS device '
-            '(Garmin, Wahoo, Polar, Suunto, Coros). Activities are automatically recorded '
-            'on the team challenge board.'
-            '</p>'
-            '</div>'
-        )
+        if show_name_form:
+            display_account = safe_username or safe_name or "Athlete"
+            description = (
+                f"Your Intervals.icu account (<strong>{display_account}</strong>) is now linked to club "
+                f"<strong>{safe_club}</strong>.<br>"
+                "Please enter your name below so teammates recognize you on the leaderboard."
+            )
+            form_error_html = (
+                f'<div class="error-text" style="margin-bottom: 14px;">{safe_form_error}</div>'
+                if safe_form_error
+                else ""
+            )
+            tip_box = (
+                '<form method="POST" action="/oauth/name" class="name-form">'
+                f"{form_error_html}"
+                f'<input type="hidden" name="athlete_id" value="{safe_athlete_id}">'
+                f'<input type="hidden" name="club_id" value="{safe_club}">'
+                f'<input type="hidden" name="token" value="{safe_token}">'
+                '<label for="athlete-name" class="form-label">Your Name</label>'
+                '<input id="athlete-name" name="name" type="text" class="form-input" '
+                f'value="{safe_name}" placeholder="e.g. Daniel Fernández" maxlength="80" required autocomplete="name">'
+                '<button type="submit" class="submit-btn">Save Name</button>'
+                "</form>"
+            )
+        else:
+            display_name = safe_name or safe_username or "Athlete"
+            account_note = (
+                f" (Intervals.icu: <strong>{safe_username}</strong>)"
+                if safe_name and safe_username and safe_name != safe_username
+                else ""
+            )
+            description = (
+                f"Welcome aboard, <strong>{display_name}</strong>!<br>"
+                f"Your Intervals.icu account{account_note} is now linked to club <strong>{safe_club}</strong>. "
+                "Your uploaded activities will automatically sync to the dashboard."
+            )
+            tip_box = (
+                '<div class="tip-card">'
+                '<div class="tip-title">⚡ How it works</div>'
+                '<p class="tip-body">'
+                'Upload or sync your rides and runs to Intervals.icu from your GPS device '
+                '(Garmin, Wahoo, Polar, Suunto, Coros). Activities are automatically recorded '
+                'on the team challenge board.'
+                '</p>'
+                '</div>'
+            )
     else:
         status_badge = (
             '<div class="status-badge error">'
@@ -347,6 +427,65 @@ def render_callback_html(
       font-size: 0.9rem;
       line-height: 1.5;
       color: var(--text-secondary);
+    }}
+
+    .name-form {{
+      background: rgba(240, 244, 248, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: left;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }}
+
+    .form-label {{
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }}
+
+    .form-input {{
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      background: #ffffff;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }}
+
+    .form-input:focus {{
+      border-color: var(--activum-teal-dark);
+      box-shadow: 0 0 0 3px var(--activum-teal-glow);
+    }}
+
+    .submit-btn {{
+      width: 100%;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--activum-teal-dark), var(--activum-teal));
+      color: #ffffff;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px var(--activum-teal-glow);
+      transition: transform 0.1s ease, opacity 0.15s ease;
+    }}
+
+    .submit-btn:hover {{
+      opacity: 0.95;
+    }}
+
+    .submit-btn:active {{
+      transform: translateY(1px);
     }}
 
     .footer {{

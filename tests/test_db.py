@@ -11,13 +11,14 @@ def test_get_athlete_not_found(dynamodb_mock):
 def test_save_and_get_athlete(dynamodb_mock):
     athlete_data = db.save_athlete(
         athlete_id="i12345",
-        athlete_name="Daniel Fernandez",
+        intervals_username="dani_icu",
         access_token="token_abc_123",
         club_id="almas_inquietas",
     )
 
     assert athlete_data["athlete_id"] == "i12345"
-    assert athlete_data["athlete_name"] == "Daniel Fernandez"
+    assert athlete_data["intervals_username"] == "dani_icu"
+    assert athlete_data["name"] == ""
     assert athlete_data["access_token"] == "token_abc_123"
     assert athlete_data["clubs"] == ["almas_inquietas"]
     assert "updated_at" in athlete_data
@@ -26,7 +27,8 @@ def test_save_and_get_athlete(dynamodb_mock):
     fetched = db.get_athlete("i12345")
     assert fetched is not None
     assert fetched["athlete_id"] == "i12345"
-    assert fetched["athlete_name"] == "Daniel Fernandez"
+    assert fetched["intervals_username"] == "dani_icu"
+    assert fetched["name"] == ""
     assert fetched["access_token"] == "token_abc_123"
     assert fetched["clubs"] == ["almas_inquietas"]
     assert fetched["updated_at"] == athlete_data["updated_at"]
@@ -36,7 +38,7 @@ def test_save_athlete_multi_club_no_duplicates(dynamodb_mock):
     # Register first club
     db.save_athlete(
         athlete_id="i12345",
-        athlete_name="Daniel Fernandez",
+        intervals_username="dani_icu",
         access_token="token_1",
         club_id="club_a",
     )
@@ -44,7 +46,7 @@ def test_save_athlete_multi_club_no_duplicates(dynamodb_mock):
     # Register same club again - should not duplicate
     updated_1 = db.save_athlete(
         athlete_id="i12345",
-        athlete_name="Daniel Fernandez",
+        intervals_username="dani_icu",
         access_token="token_1_new",
         club_id="club_a",
     )
@@ -54,32 +56,98 @@ def test_save_athlete_multi_club_no_duplicates(dynamodb_mock):
     # Register a second club
     updated_2 = db.save_athlete(
         athlete_id="i12345",
-        athlete_name="Daniel Fernandez Updated",
+        intervals_username="dani_icu_updated",
         access_token="token_2",
         club_id="club_b",
     )
     assert "club_a" in updated_2["clubs"]
     assert "club_b" in updated_2["clubs"]
     assert len(updated_2["clubs"]) == 2
-    assert updated_2["athlete_name"] == "Daniel Fernandez Updated"
+    assert updated_2["intervals_username"] == "dani_icu_updated"
     assert updated_2["access_token"] == "token_2"
 
     # Verify via get_athlete
     fetched = db.get_athlete("i12345")
     assert fetched["clubs"] == updated_2["clubs"]
-    assert fetched["athlete_name"] == "Daniel Fernandez Updated"
+    assert fetched["intervals_username"] == "dani_icu_updated"
     assert fetched["access_token"] == "token_2"
+
+
+def test_save_athlete_preserves_existing_name_on_reregister(dynamodb_mock):
+    db.save_athlete(
+        athlete_id="i12345",
+        intervals_username="handle_1",
+        access_token="tok_1",
+        club_id="club_1",
+    )
+    db.update_athlete_name("i12345", "Daniel Fernandez")
+
+    reregistered = db.save_athlete(
+        athlete_id="i12345",
+        intervals_username="handle_1",
+        access_token="tok_2",
+        club_id="club_2",
+    )
+    assert reregistered["name"] == "Daniel Fernandez"
+    assert reregistered["intervals_username"] == "handle_1"
+    assert reregistered["clubs"] == ["club_1", "club_2"]
 
 
 def test_save_athlete_empty_club_id(dynamodb_mock):
     # When club_id is empty or None
     result = db.save_athlete(
         athlete_id="i99999",
-        athlete_name="Solo Athlete",
+        intervals_username="Solo Athlete",
         access_token="tok",
         club_id="",
     )
     assert result["clubs"] == []
+    assert result["name"] == ""
+
+
+def test_update_athlete_name_success(dynamodb_mock):
+    db.save_athlete(
+        athlete_id="i55555",
+        intervals_username="runner_handle_99",
+        access_token="tok_xyz",
+        club_id="almas_inquietas",
+    )
+    updated = db.update_athlete_name("i55555", "  Laura Martínez  ")
+    assert updated is not None
+    assert updated["name"] == "Laura Martínez"
+    assert updated["intervals_username"] == "runner_handle_99"
+    assert updated["access_token"] == "tok_xyz"
+    assert updated["clubs"] == ["almas_inquietas"]
+
+    fetched = db.get_athlete("i55555")
+    assert fetched["name"] == "Laura Martínez"
+    assert fetched["intervals_username"] == "runner_handle_99"
+
+
+def test_update_athlete_name_not_found(dynamodb_mock):
+    assert db.update_athlete_name("i_missing", "Nobody") is None
+
+
+def test_update_athlete_name_empty_raises(dynamodb_mock):
+    with pytest.raises(ValueError):
+        db.update_athlete_name("i55555", "   ")
+
+
+def test_get_athlete_display_name():
+    assert db.get_athlete_display_name(None) == "Unknown Athlete"
+    assert db.get_athlete_display_name({}) == "Unknown Athlete"
+    assert db.get_athlete_display_name({
+        "name": "Daniel Fernandez",
+        "intervals_username": "dani_icu",
+        "athlete_name": "Legacy",
+    }) == "Daniel Fernandez"
+    assert db.get_athlete_display_name({
+        "name": "",
+        "intervals_username": "dani_icu",
+    }) == "dani_icu"
+    assert db.get_athlete_display_name({
+        "athlete_name": "Legacy Name",
+    }) == "Legacy Name"
 
 
 def test_save_activity_new(dynamodb_mock):
