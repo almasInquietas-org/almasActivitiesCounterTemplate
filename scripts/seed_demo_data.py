@@ -28,77 +28,77 @@ DEMO_ATHLETES = [
     {"id": "i_demo_12", "name": "Marta Benítez", "token": "tok_demo_12"},
 ]
 
-# Curated activities template across the last 14 days
+# Curated activities template across the past 7 days (days_ago in 0..6)
 # Distribution: Runs (tempo, long, intervals), Rides (gran fondo, morning spin), Swims, Hikes
 ACTIVITY_TEMPLATES = [
     # Daniel Fernández
-    ("i_demo_01", "Tirada larga de domingo por Collserola", "Run", 21.2, 7200, 380, 1),
-    ("i_demo_01", "Series 6x1000m pista", "Run", 11.5, 3300, 25, 3),
-    ("i_demo_01", "Salida ciclista carretera El Garraf", "Ride", 75.4, 9800, 850, 5),
-    ("i_demo_01", "Rodaje regenerativo matutino", "Run", 8.2, 2700, 60, 7),
-    ("i_demo_01", "Subida ciclista a Montserrat", "Ride", 82.0, 11200, 1200, 10),
+    ("i_demo_01", "Tirada larga de domingo por Collserola", "Run", 21.2, 7200, 380, 0),
+    ("i_demo_01", "Series 6x1000m pista", "Run", 11.5, 3300, 25, 1),
+    ("i_demo_01", "Salida ciclista carretera El Garraf", "Ride", 75.4, 9800, 850, 3),
+    ("i_demo_01", "Rodaje regenerativo matutino", "Run", 8.2, 2700, 60, 4),
+    ("i_demo_01", "Subida ciclista a Montserrat", "Ride", 82.0, 11200, 1200, 6),
 
     # Lucía Martínez
-    ("i_demo_02", "Gravel bike por pistas del Penedès", "Ride", 68.5, 9200, 620, 2),
-    ("i_demo_02", "Entreno de natación técnica 2500m", "Swim", 2.5, 2800, 0, 3),
-    ("i_demo_02", "Rodaje continuo a ritmo maratón", "Run", 16.0, 4800, 110, 6),
-    ("i_demo_02", "Salida grupal sábado carretera", "Ride", 94.2, 12400, 950, 8),
-    ("i_demo_02", "Trail running subida La Mola", "Run", 14.8, 5400, 710, 11),
+    ("i_demo_02", "Gravel bike por pistas del Penedès", "Ride", 68.5, 9200, 620, 0),
+    ("i_demo_02", "Entreno de natación técnica 2500m", "Swim", 2.5, 2800, 0, 1),
+    ("i_demo_02", "Rodaje continuo a ritmo maratón", "Run", 16.0, 4800, 110, 3),
+    ("i_demo_02", "Salida grupal sábado carretera", "Ride", 94.2, 12400, 950, 4),
+    ("i_demo_02", "Trail running subida La Mola", "Run", 14.8, 5400, 710, 6),
 
     # Carlos Navarro
-    ("i_demo_03", "Gran Fondo puertos de montaña", "Ride", 112.5, 14600, 1650, 1),
-    ("i_demo_03", "Rodaje suave recuperación", "Ride", 35.0, 4500, 150, 4),
-    ("i_demo_03", "Contrarreloj llana de prueba", "Ride", 42.0, 4200, 180, 7),
-    ("i_demo_03", "Gravel tarde otoñal", "Ride", 55.4, 7600, 490, 12),
+    ("i_demo_03", "Gran Fondo puertos de montaña", "Ride", 112.5, 14600, 1650, 0),
+    ("i_demo_03", "Rodaje suave recuperación", "Ride", 35.0, 4500, 150, 2),
+    ("i_demo_03", "Contrarreloj llana de prueba", "Ride", 42.0, 4200, 180, 4),
+    ("i_demo_03", "Gravel tarde otoñal", "Ride", 55.4, 7600, 490, 6),
 
     # Elena Gómez
-    ("i_demo_04", "Media Maratón preparatoria", "Run", 21.1, 5900, 130, 2),
-    ("i_demo_04", "Fartlek cambios de ritmo", "Run", 12.4, 3500, 90, 5),
-    ("i_demo_04", "Natación aguas abiertas", "Swim", 3.0, 3200, 0, 7),
-    ("i_demo_04", "Rodaje suave en ayunas", "Run", 10.0, 3100, 75, 9),
+    ("i_demo_04", "Media Maratón preparatoria", "Run", 21.1, 5900, 130, 1),
+    ("i_demo_04", "Fartlek cambios de ritmo", "Run", 12.4, 3500, 90, 2),
+    ("i_demo_04", "Natación aguas abiertas", "Swim", 3.0, 3200, 0, 4),
+    ("i_demo_04", "Rodaje suave en ayunas", "Run", 10.0, 3100, 75, 5),
 
     # Marcos Serrano
-    ("i_demo_05", "Ruta BTT trialeras y senderos", "Ride", 44.0, 7800, 890, 2),
-    ("i_demo_05", "Senderismo activo con desnivel", "Hike", 15.5, 9600, 650, 6),
-    ("i_demo_05", "Salida carretera ritmo alegre", "Ride", 62.0, 8100, 540, 8),
-    ("i_demo_05", "BTT nocturna entre semana", "Ride", 31.5, 5200, 410, 13),
+    ("i_demo_05", "Ruta BTT trialeras y senderos", "Ride", 44.0, 7800, 890, 1),
+    ("i_demo_05", "Senderismo activo con desnivel", "Hike", 15.5, 9600, 650, 3),
+    ("i_demo_05", "Salida carretera ritmo alegre", "Ride", 62.0, 8100, 540, 4),
+    ("i_demo_05", "BTT nocturna entre semana", "Ride", 31.5, 5200, 410, 6),
 
     # Sofía Morales
-    ("i_demo_06", "Tirada larga 28km fondo", "Run", 28.0, 8800, 220, 3),
-    ("i_demo_06", "Entreno de cuestas explosivas", "Run", 9.5, 3200, 290, 6),
-    ("i_demo_06", "Rodaje ritmo vivo progresivo", "Run", 15.2, 4400, 120, 10),
-    ("i_demo_06", "Series cortas 10x400m", "Run", 8.8, 2600, 30, 12),
+    ("i_demo_06", "Tirada larga 28km fondo", "Run", 28.0, 8800, 220, 1),
+    ("i_demo_06", "Entreno de cuestas explosivas", "Run", 9.5, 3200, 290, 3),
+    ("i_demo_06", "Rodaje ritmo vivo progresivo", "Run", 15.2, 4400, 120, 5),
+    ("i_demo_06", "Series cortas 10x400m", "Run", 8.8, 2600, 30, 6),
 
     # Javier Vidal
-    ("i_demo_07", "Circuito carretera Costa Brava", "Ride", 88.0, 11500, 920, 1),
-    ("i_demo_07", "Sesión de series en subida", "Ride", 48.0, 6600, 780, 5),
-    ("i_demo_07", "Paseo activo y caminata", "Walk", 6.5, 4200, 50, 9),
+    ("i_demo_07", "Circuito carretera Costa Brava", "Ride", 88.0, 11500, 920, 0),
+    ("i_demo_07", "Sesión de series en subida", "Ride", 48.0, 6600, 780, 2),
+    ("i_demo_07", "Paseo activo y caminata", "Walk", 6.5, 4200, 50, 5),
 
     # Paula Romero
-    ("i_demo_08", "Entrenamiento natación series 100m", "Swim", 2.2, 2500, 0, 2),
-    ("i_demo_08", "Rodaje cómodo matinal", "Run", 11.0, 3600, 80, 4),
-    ("i_demo_08", "Travesía natación fin de semana", "Swim", 3.8, 4100, 0, 7),
-    ("i_demo_08", "Carrera continua ritmo fácil", "Run", 13.5, 4300, 95, 11),
+    ("i_demo_08", "Entrenamiento natación series 100m", "Swim", 2.2, 2500, 0, 1),
+    ("i_demo_08", "Rodaje cómodo matinal", "Run", 11.0, 3600, 80, 2),
+    ("i_demo_08", "Travesía natación fin de semana", "Swim", 3.8, 4100, 0, 4),
+    ("i_demo_08", "Carrera continua ritmo fácil", "Run", 13.5, 4300, 95, 6),
 
     # David Alarcón
-    ("i_demo_09", "Ultra Trail tramo técnico", "Run", 32.4, 14200, 1450, 3),
-    ("i_demo_09", "Caminata de altura Pirineos", "Hike", 18.0, 13800, 980, 8),
-    ("i_demo_09", "Carrera regenerativa", "Run", 7.5, 2600, 40, 12),
+    ("i_demo_09", "Ultra Trail tramo técnico", "Run", 32.4, 14200, 1450, 1),
+    ("i_demo_09", "Caminata de altura Pirineos", "Hike", 18.0, 13800, 980, 4),
+    ("i_demo_09", "Carrera regenerativa", "Run", 7.5, 2600, 40, 6),
 
     # Andrea Castillo
-    ("i_demo_10", "Salida cicloturista tranquila", "Ride", 52.0, 7200, 410, 4),
-    ("i_demo_10", "Rodaje por el paseo marítimo", "Run", 10.2, 3300, 15, 6),
-    ("i_demo_10", "Gravel descubriendo caminos", "Ride", 41.5, 6100, 320, 10),
+    ("i_demo_10", "Salida cicloturista tranquila", "Ride", 52.0, 7200, 410, 2),
+    ("i_demo_10", "Rodaje por el paseo marítimo", "Run", 10.2, 3300, 15, 3),
+    ("i_demo_10", "Gravel descubriendo caminos", "Ride", 41.5, 6100, 320, 5),
 
     # Roberto Molina
-    ("i_demo_11", "Tirada media con cambios", "Run", 17.5, 5200, 140, 5),
-    ("i_demo_11", "Rodaje suave en parque", "Run", 8.0, 2550, 30, 9),
-    ("i_demo_11", "Salida BTT dominguera", "Ride", 38.0, 6400, 510, 13),
+    ("i_demo_11", "Tirada media con cambios", "Run", 17.5, 5200, 140, 2),
+    ("i_demo_11", "Rodaje suave en parque", "Run", 8.0, 2550, 30, 5),
+    ("i_demo_11", "Salida BTT dominguera", "Ride", 38.0, 6400, 510, 6),
 
     # Marta Benítez
-    ("i_demo_12", "Ciclismo carretera llano", "Ride", 65.0, 8400, 280, 3),
-    ("i_demo_12", "Series 5x2000m ritmo 10k", "Run", 14.0, 4100, 60, 7),
-    ("i_demo_12", "Sesión de piscina recuperación", "Swim", 1.8, 2100, 0, 11),
+    ("i_demo_12", "Ciclismo carretera llano", "Ride", 65.0, 8400, 280, 1),
+    ("i_demo_12", "Series 5x2000m ritmo 10k", "Run", 14.0, 4100, 60, 4),
+    ("i_demo_12", "Sesión de piscina recuperación", "Swim", 1.8, 2100, 0, 6),
 ]
 
 ATHLETES_TABLE_NAME = ""
@@ -172,7 +172,8 @@ def seed(env: str = "dev", reset: bool = False, club: str = "almas_inquietas") -
             batch.put_item(
                 Item={
                     "athlete_id": a["id"],
-                    "athlete_name": a["name"],
+                    "intervals_username": f"intervals_{a['id']}",
+                    "name": a["name"],
                     "access_token": a["token"],
                     "clubs": [club],
                     "updated_at": now_iso,
@@ -186,7 +187,12 @@ def seed(env: str = "dev", reset: bool = False, club: str = "almas_inquietas") -
 
     with activities_table.batch_writer() as batch:
         for idx, (ath_id, title, act_type, km, time_s, elev, days_ago) in enumerate(ACTIVITY_TEMPLATES, 1):
-            act_date = (base_time - timedelta(days=days_ago, hours=idx % 8, minutes=idx * 7)).strftime("%Y-%m-%dT%H:%M:%S")
+            bounded_days = days_ago % 7
+            hours_offset = (idx % 6) + 1
+            minutes_offset = (idx * 7) % 60
+            act_date = (
+                base_time - timedelta(days=bounded_days, hours=hours_offset, minutes=minutes_offset)
+            ).strftime("%Y-%m-%dT%H:%M:%S")
             act_id = f"demo_act_{idx:04d}"
             dist_decimal = Decimal(str(round(km, 2)))
             total_km += km

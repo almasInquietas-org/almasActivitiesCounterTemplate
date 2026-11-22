@@ -93,21 +93,23 @@ def test_oauth_callback_success(dynamodb_mock):
         mock_exchange.return_value = {
             "access_token": "token_abc_xyz",
             "athlete_id": "i99999",
-            "athlete_name": "Test Athlete"
+            "intervals_username": "test_icu_handle"
         }
         response = process_activities(event, None)
 
     assert response["statusCode"] == 200
     assert response["headers"]["Content-Type"] == "text/html; charset=utf-8"
     assert "Registration Successful" in response["body"]
-    assert "Test Athlete" in response["body"]
+    assert "test_icu_handle" in response["body"]
     assert "test_club" in response["body"]
+    assert '<form method="POST" action="/oauth/name"' in response["body"]
 
-    # Verify athlete was saved in DynamoDB
+    # Verify athlete was saved in DynamoDB with intervals_username and empty name initially
     athlete = get_athlete("i99999")
     assert athlete is not None
     assert athlete["athlete_id"] == "i99999"
-    assert athlete["athlete_name"] == "Test Athlete"
+    assert athlete["intervals_username"] == "test_icu_handle"
+    assert athlete["name"] == ""
     assert athlete["access_token"] == "token_abc_xyz"
     assert athlete["clubs"] == ["test_club"]
 
@@ -127,17 +129,20 @@ def test_oauth_callback_default_club(dynamodb_mock):
         mock_exchange.return_value = {
             "access_token": "token_default_club",
             "athlete_id": "i88888",
-            "athlete_name": "Default Club Runner"
+            "intervals_username": "default_runner_handle"
         }
         response = process_activities(event, None)
 
     assert response["statusCode"] == 200
     assert "Registration Successful" in response["body"]
-    assert "Default Club Runner" in response["body"]
+    assert "default_runner_handle" in response["body"]
     assert "default" in response["body"]
+    assert 'action="/oauth/name"' in response["body"]
 
     athlete = get_athlete("i88888")
     assert athlete is not None
+    assert athlete["intervals_username"] == "default_runner_handle"
+    assert athlete["name"] == ""
     assert athlete["clubs"] == ["default"]
 
 
@@ -187,6 +192,126 @@ def test_oauth_callback_token_exchange_error():
     assert response["headers"]["Content-Type"] == "text/html; charset=utf-8"
     assert "Registration Failed" in response["body"] or "Could Not Connect" in response["body"]
     assert "Upstream Intervals.icu 400 Bad Request" in response["body"]
+
+
+# --- POST /oauth/name Tests ---
+
+def test_oauth_name_form_submission_base64_success(dynamodb_mock):
+    import urllib.parse
+    from api.backend_source import process_activities
+    from api.db import get_athlete, save_athlete
+    from api.intervals_oauth import generate_name_token
+
+    save_athlete("i99999", "icu_unique_handle", "tok_abc", "test_club")
+    token = generate_name_token("i99999")
+
+    form_body = urllib.parse.urlencode({
+        "athlete_id": "i99999",
+        "club_id": "test_club",
+        "token": token,
+        "name": "Daniel Fernández",
+    })
+    encoded_body = base64.b64encode(form_body.encode("utf-8")).decode("utf-8")
+
+    event = make_v2_event(
+        method="POST",
+        raw_path="/oauth/name",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=encoded_body,
+        is_base64=True,
+    )
+    response = process_activities(event, None)
+
+    assert response["statusCode"] == 200
+    assert response["headers"]["Content-Type"] == "text/html; charset=utf-8"
+    assert "Daniel Fernández" in response["body"]
+    assert "<form" not in response["body"]
+
+    athlete = get_athlete("i99999")
+    assert athlete["intervals_username"] == "icu_unique_handle"
+    assert athlete["name"] == "Daniel Fernández"
+
+
+def test_oauth_name_json_submission_success(dynamodb_mock):
+    from api.backend_source import process_activities
+    from api.db import get_athlete, save_athlete
+    from api.intervals_oauth import generate_name_token
+
+    save_athlete("i88888", "icu_json_handle", "tok_json", "club_json")
+    token = generate_name_token("i88888")
+
+    event = make_v2_event(
+        method="POST",
+        raw_path="/oauth/name",
+        headers={"Content-Type": "application/json"},
+        body=json.dumps({
+            "athlete_id": "i88888",
+            "club_id": "club_json",
+            "token": token,
+            "name": "Lucía Martínez",
+        }),
+    )
+    response = process_activities(event, None)
+
+    assert response["statusCode"] == 200
+    assert "Lucía Martínez" in response["body"]
+    athlete = get_athlete("i88888")
+    assert athlete["intervals_username"] == "icu_json_handle"
+    assert athlete["name"] == "Lucía Martínez"
+
+
+def test_oauth_name_empty_or_too_long_returns_400_with_form(dynamodb_mock):
+    import urllib.parse
+    from api.backend_source import process_activities
+    from api.db import save_athlete
+    from api.intervals_oauth import generate_name_token
+
+    save_athlete("i77777", "icu_handle", "tok", "club_a")
+    token = generate_name_token("i77777")
+
+    for bad_name in ["   ", "A" * 81]:
+        form_body = urllib.parse.urlencode({
+            "athlete_id": "i77777",
+            "club_id": "club_a",
+            "token": token,
+            "name": bad_name,
+        })
+        event = make_v2_event(
+            method="POST",
+            raw_path="/oauth/name",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            body=form_body,
+        )
+        response = process_activities(event, None)
+        assert response["statusCode"] == 400
+        assert '<form method="POST" action="/oauth/name"' in response["body"]
+        assert "1 to 80 characters" in response["body"]
+
+
+def test_oauth_name_invalid_or_expired_token_returns_403(dynamodb_mock):
+    import urllib.parse
+    from api.backend_source import process_activities
+    from api.db import get_athlete, save_athlete
+    from api.intervals_oauth import generate_name_token
+
+    save_athlete("i66666", "icu_handle", "tok", "club_a")
+
+    for bad_token in ["invalid.token", generate_name_token("i66666", ttl_seconds=-5)]:
+        form_body = urllib.parse.urlencode({
+            "athlete_id": "i66666",
+            "club_id": "club_a",
+            "token": bad_token,
+            "name": "Hacker",
+        })
+        event = make_v2_event(
+            method="POST",
+            raw_path="/oauth/name",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            body=form_body,
+        )
+        response = process_activities(event, None)
+        assert response["statusCode"] == 403
+        assert get_athlete("i66666")["name"] == ""
 
 
 # --- Story 6: POST /webhook & Flow Tests ---
@@ -247,8 +372,8 @@ def test_webhook_valid_ingestion(dynamodb_mock, monkeypatch):
     from api.db import save_athlete, get_all_activities
     monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "test-secret")
 
-    # Pre-register athlete
-    save_athlete("i2049151", "Daniel Fernandez", "tok_xyz", "almas_inquietas")
+    # Pre-register athlete with intervals_username and custom name
+    save_athlete("i2049151", "dani_icu_handle", "tok_xyz", "almas_inquietas", name="Daniel Fernandez")
 
     payload = {
         "secret": "test-secret",
@@ -298,7 +423,7 @@ def test_webhook_idempotency_duplicate_activity(dynamodb_mock, monkeypatch):
     from api.db import save_athlete, get_all_activities
     monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "test-secret")
 
-    save_athlete("i2049151", "Daniel Fernandez", "tok_xyz", "almas_inquietas")
+    save_athlete("i2049151", "dani_icu", "tok_xyz", "almas_inquietas", name="Daniel Fernandez")
 
     payload = {
         "secret": "test-secret",
@@ -343,7 +468,7 @@ def test_webhook_unknown_athlete_and_non_activity_event(dynamodb_mock, monkeypat
     from api.db import save_athlete, get_all_activities
     monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "test-secret")
 
-    save_athlete("i100", "Known Athlete", "tok", "club1")
+    save_athlete("i100", "known_handle", "tok", "club1", name="Known Athlete")
 
     payload = {
         "secret": "test-secret",
@@ -388,11 +513,16 @@ def test_webhook_unknown_athlete_and_non_activity_event(dynamodb_mock, monkeypat
 def test_e2e_flow_callback_webhook_and_dashboard(dynamodb_mock, monkeypatch):
     """
     E2E flow test:
-    1. OAuth callback registers athlete Daniel in club 'ciclistas_valencia'
-    2. Webhook arrives with a 45.5 km ride for Daniel
-    3. GET / returns dashboard data reflecting the ride
+    1. OAuth callback registers athlete with intervals_username in club 'ciclistas_valencia'
+    2. Athlete submits custom display name via POST /oauth/name
+    3. Webhook arrives with a 45.5 km ride for athlete
+    4. GET / returns dashboard data reflecting the athlete-provided name (not intervals_username)
     """
+    import re
+    import urllib.parse
     from api.backend_source import process_activities
+    from api.db import get_athlete
+
     monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "webhook-sec")
     # Passthrough auth for GET / to verify dashboard aggregation
     monkeypatch.setattr(config, "API_KEY", "")
@@ -408,12 +538,38 @@ def test_e2e_flow_callback_webhook_and_dashboard(dynamodb_mock, monkeypatch):
         mock_exchange.return_value = {
             "access_token": "token_valencia",
             "athlete_id": "i777",
-            "athlete_name": "Daniel F."
+            "intervals_username": "dani_valencia_99"
         }
         cb_res = process_activities(cb_event, None)
     assert cb_res["statusCode"] == 200
+    assert 'action="/oauth/name"' in cb_res["body"]
 
-    # Step 2: Webhook receiver
+    # Extract signed token rendered in the HTML form
+    token_match = re.search(r'name="token"\s+value="([^"]+)"', cb_res["body"])
+    assert token_match is not None
+    form_token = token_match.group(1)
+
+    # Step 2: Athlete submits custom display name
+    name_event = make_v2_event(
+        method="POST",
+        raw_path="/oauth/name",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=urllib.parse.urlencode({
+            "athlete_id": "i777",
+            "club_id": "ciclistas_valencia",
+            "token": form_token,
+            "name": "Daniel F.",
+        }),
+    )
+    name_res = process_activities(name_event, None)
+    assert name_res["statusCode"] == 200
+    assert "Daniel F." in name_res["body"]
+
+    saved = get_athlete("i777")
+    assert saved["intervals_username"] == "dani_valencia_99"
+    assert saved["name"] == "Daniel F."
+
+    # Step 3: Webhook receiver
     webhook_event = make_v2_event(
         method="POST",
         raw_path="/webhook",
@@ -440,7 +596,7 @@ def test_e2e_flow_callback_webhook_and_dashboard(dynamodb_mock, monkeypatch):
     assert wh_data["processed"] == 1
     assert wh_data["saved"] == 1
 
-    # Step 3: GET / (Dashboard route)
+    # Step 4: GET / (Dashboard route)
     dash_event = make_v2_event(method="GET", raw_path="/")
     dash_res = process_activities(dash_event, None)
     assert dash_res["statusCode"] == 200
@@ -449,7 +605,46 @@ def test_e2e_flow_callback_webhook_and_dashboard(dynamodb_mock, monkeypatch):
     assert dash_data["total_activities"] == 1
     assert len(dash_data["top_athletes"]) == 1
     assert dash_data["top_athletes"][0]["athlete_name"] == "Daniel F."
+    assert dash_data["last_activities"][0]["athlete"] == "Daniel F."
     assert dash_data["top_athletes"][0]["currentKm"] == 45.5
+
+
+def test_e2e_flow_fallback_to_intervals_username_when_name_skipped(dynamodb_mock, monkeypatch):
+    """If an athlete does not submit the name form, webhook falls back to intervals_username."""
+    from api.backend_source import process_activities
+    monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "webhook-sec")
+    monkeypatch.setattr(config, "API_KEY", "")
+    monkeypatch.setattr(config, "API_SIGNING_SECRET", "")
+
+    cb_event = make_v2_event(
+        method="GET",
+        raw_path="/oauth/callback",
+        query_params={"code": "auth_code_skip", "state": "ciclistas_valencia"}
+    )
+    with patch("api.backend_source.intervals_oauth.exchange_code_for_token") as mock_exchange:
+        mock_exchange.return_value = {
+            "access_token": "token_skip",
+            "athlete_id": "i778",
+            "intervals_username": "fallback_handle"
+        }
+        assert process_activities(cb_event, None)["statusCode"] == 200
+
+    wh_event = make_v2_event(
+        method="POST",
+        raw_path="/webhook",
+        body=json.dumps({
+            "secret": "webhook-sec",
+            "events": [{
+                "athlete_id": "i778",
+                "type": "ACTIVITY_UPLOADED",
+                "activity": {"id": 112233, "name": "Run", "type": "Run", "distance": 10000, "start_date_local": "2026-10-26T08:00:00"}
+            }]
+        })
+    )
+    assert process_activities(wh_event, None)["statusCode"] == 200
+
+    dash_data = json.loads(process_activities(make_v2_event(method="GET", raw_path="/"), None)["body"])
+    assert dash_data["top_athletes"][0]["athlete_name"] == "fallback_handle"
 
 
 def test_options_cors_preflight():

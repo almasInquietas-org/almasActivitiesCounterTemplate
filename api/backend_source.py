@@ -5,6 +5,7 @@ Routes:
   - GET  /               -> Dashboard data (JSON)
   - POST /auth/token     -> HMAC-SHA256 handshake for frontend Bearer token
   - GET  /oauth/callback -> Intervals.icu OAuth callback & athlete registration (HTML)
+  - POST /oauth/name     -> Save athlete display name after OAuth registration (HTML)
   - POST /webhook        -> Ingestion of real-time ACTIVITY_UPLOADED webhooks
 """
 import base64
@@ -13,6 +14,7 @@ import json
 import logging
 import re
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -247,20 +249,20 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
 
     # Save athlete to database
     athlete_id = token_data["athlete_id"]
-    athlete_name = token_data["athlete_name"]
+    intervals_username = token_data["intervals_username"]
     access_token = token_data["access_token"]
 
     try:
-        db.save_athlete(
+        saved_athlete = db.save_athlete(
             athlete_id=athlete_id,
-            athlete_name=athlete_name,
+            intervals_username=intervals_username,
             access_token=access_token,
             club_id=club_id,
         )
         logger.info(
-            "[OAuth Callback] Saved athlete_id=%s athlete_name=%s to club_id=%s",
+            "[OAuth Callback] Saved athlete_id=%s intervals_username=%s to club_id=%s",
             athlete_id,
-            athlete_name,
+            intervals_username,
             club_id,
         )
     except Exception as err:
@@ -278,10 +280,128 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
         )
         return _make_html_response(500, html, origin)
 
+    name_token = intervals_oauth.generate_name_token(athlete_id)
     html = intervals_oauth.render_callback_html(
         success=True,
-        athlete_name=athlete_name,
+        athlete_name=saved_athlete.get("name", ""),
+        intervals_username=intervals_username,
         club_id=club_id,
+        athlete_id=athlete_id,
+        name_token=name_token,
+        show_name_form=True,
+    )
+    return _make_html_response(200, html, origin)
+
+
+def _parse_name_payload(body_str: str, headers: dict[str, str]) -> dict[str, str]:
+    """Parse POST /oauth/name body from application/x-www-form-urlencoded or application/json."""
+    content_type = str(headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        data = json.loads(body_str or "{}")
+        if not isinstance(data, dict):
+            raise ValueError("JSON body must be an object")
+        return {str(k): str(v) if v is not None else "" for k, v in data.items()}
+
+    parsed_qs = urllib.parse.parse_qs(body_str or "", keep_blank_values=True)
+    return {k: vals[0] if vals else "" for k, vals in parsed_qs.items()}
+
+
+def _handle_oauth_name(
+    body_str: str,
+    headers: dict[str, str],
+    origin: str | None = None,
+) -> dict[str, Any]:
+    """
+    Handles POST /oauth/name.
+    Validates the signed registration token, saves the athlete's custom display
+    name under 'name' in DynamoDB (keeping 'intervals_username' intact), and
+    renders the final HTML confirmation page.
+    """
+    try:
+        form_data = _parse_name_payload(body_str, headers)
+    except Exception:
+        html = intervals_oauth.render_callback_html(
+            success=False,
+            error_msg="Invalid form submission payload.",
+        )
+        return _make_html_response(400, html, origin)
+
+    athlete_id = str(form_data.get("athlete_id") or "").strip()
+    club_id = str(form_data.get("club_id") or "").strip() or "default"
+    token = str(form_data.get("token") or "").strip()
+    raw_name = str(form_data.get("name") or "")
+
+    if not intervals_oauth.verify_name_token(athlete_id, token):
+        logger.warning("[OAuth Name] Invalid or expired name token for athlete_id=%s", athlete_id or "<empty>")
+        html = intervals_oauth.render_callback_html(
+            success=False,
+            club_id=club_id,
+            error_msg="Your registration link or session has expired. Please reconnect with Intervals.icu.",
+        )
+        return _make_html_response(403, html, origin)
+
+    athlete = db.get_athlete(athlete_id)
+    if not athlete:
+        logger.warning("[OAuth Name] Athlete not found for athlete_id=%s", athlete_id)
+        html = intervals_oauth.render_callback_html(
+            success=False,
+            club_id=club_id,
+            error_msg="Athlete registration not found. Please reconnect with Intervals.icu.",
+        )
+        return _make_html_response(404, html, origin)
+
+    intervals_username = str(athlete.get("intervals_username") or athlete.get("athlete_name") or "")
+    clean_name = raw_name.strip()
+
+    if not clean_name or len(clean_name) > 80:
+        html = intervals_oauth.render_callback_html(
+            success=True,
+            athlete_name=clean_name[:80],
+            intervals_username=intervals_username,
+            club_id=club_id,
+            athlete_id=athlete_id,
+            name_token=token,
+            show_name_form=True,
+            form_error="Please enter a valid name (1 to 80 characters).",
+        )
+        return _make_html_response(400, html, origin)
+
+    try:
+        updated = db.update_athlete_name(athlete_id=athlete_id, name=clean_name)
+    except Exception as err:
+        logger.exception(
+            "[OAuth Name] Failed updating name for athlete_id=%s in DynamoDB: %s",
+            athlete_id,
+            err,
+        )
+        html = intervals_oauth.render_callback_html(
+            success=False,
+            club_id=club_id,
+            error_msg=f"Database error saving athlete name: {err}",
+        )
+        return _make_html_response(500, html, origin)
+
+    if not updated:
+        html = intervals_oauth.render_callback_html(
+            success=False,
+            club_id=club_id,
+            error_msg="Athlete registration not found. Please reconnect with Intervals.icu.",
+        )
+        return _make_html_response(404, html, origin)
+
+    logger.info(
+        "[OAuth Name] Saved display name for athlete_id=%s (intervals_username=%s) -> name=%s",
+        athlete_id,
+        intervals_username,
+        clean_name,
+    )
+
+    html = intervals_oauth.render_callback_html(
+        success=True,
+        athlete_name=clean_name,
+        intervals_username=str(updated.get("intervals_username") or intervals_username),
+        club_id=club_id,
+        show_name_form=False,
     )
     return _make_html_response(200, html, origin)
 
@@ -351,7 +471,7 @@ def _handle_webhook(body_str: str, origin: str | None = None) -> dict[str, Any]:
             logger.info("[Webhook] Skipping activity_id=%s for unregistered athlete_id=%s", raw_activity_id, athlete_id)
             continue
 
-        athlete_name = athlete.get("athlete_name", "Unknown Athlete")
+        athlete_name = db.get_athlete_display_name(athlete)
         clubs = athlete.get("clubs", [])
 
         is_new = db.save_activity(
@@ -447,6 +567,9 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
         # Route: GET /oauth/callback
         elif method == "GET" and path == "/oauth/callback":
             response = _handle_oauth_callback(parsed["query_params"], origin)
+        # Route: POST /oauth/name
+        elif method == "POST" and path == "/oauth/name":
+            response = _handle_oauth_name(parsed["body"], parsed["headers"], origin)
         # Route: POST /webhook
         elif method == "POST" and path == "/webhook":
             response = _handle_webhook(parsed["body"], origin)

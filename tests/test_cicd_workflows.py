@@ -7,6 +7,7 @@ import os
 WORKFLOWS_DIR = os.path.join(".github", "workflows")
 CI_QA_PATH = os.path.join(WORKFLOWS_DIR, "ci-qa.yaml")
 DEPLOY_PRE_PATH = os.path.join(WORKFLOWS_DIR, "deploy-pre.yaml")
+SEED_PRE_PATH = os.path.join(WORKFLOWS_DIR, "seed-pre.yaml")
 DEPLOY_PROD_PATH = os.path.join(WORKFLOWS_DIR, "deploy-prod.yaml")
 README_PATH = "README.md"
 
@@ -69,6 +70,24 @@ def test_deploy_pre_workflow_clean_zip_and_lambda_target():
     # Must not pip install into api/ package directory
     assert "pip install -t" not in content
     assert "--target" not in content
+
+
+# ---------------------------------------------------------------------------
+# .github/workflows/seed-pre.yaml (PRE Demo Data Seeder)
+# ---------------------------------------------------------------------------
+
+def test_seed_pre_workflow_triggers_on_pre_merge_and_seeds_pre():
+    """Verify seed-pre.yaml runs on every push/merge to pre and seeds PRE demo data."""
+    content = _read_file(SEED_PRE_PATH)
+    assert "push:" in content
+    assert "- pre" in content
+    assert "paths:" not in content
+    assert "workflow_dispatch:" in content
+    assert "permissions:" in content
+    assert "contents: read" in content
+    assert "environment: pre" in content
+    assert "eu-north-1" in content
+    assert "python scripts/seed_demo_data.py --env pre" in content
 
 
 # ---------------------------------------------------------------------------

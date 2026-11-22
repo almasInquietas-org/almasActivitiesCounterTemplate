@@ -9,7 +9,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from api import api_config as config
-from api.intervals_oauth import OAuthError, exchange_code_for_token, render_callback_html
+from api.intervals_oauth import (
+    OAuthError,
+    exchange_code_for_token,
+    generate_name_token,
+    render_callback_html,
+    verify_name_token,
+)
 
 
 def test_exchange_code_for_token_success(monkeypatch):
@@ -38,7 +44,7 @@ def test_exchange_code_for_token_success(monkeypatch):
         assert result == {
             "access_token": "mock-access-token-12345",
             "athlete_id": "i2049151",
-            "athlete_name": "Daniel Fernandez",
+            "intervals_username": "Daniel Fernandez",
         }
 
         mock_urlopen.assert_called_once()
@@ -143,6 +149,39 @@ def test_render_callback_html_success():
     assert "<script>alert(1)</script>" not in html
     assert "Registration Successful" in html or "Registered" in html or "Welcome" in html
     assert "#0d9488" in html or "#14b8a6" in html or "teal" in html.lower()
+    assert "<form" not in html
+
+
+def test_render_callback_html_with_name_form_and_xss_escaping():
+    html = render_callback_html(
+        success=True,
+        athlete_name='"><script>x</script>',
+        intervals_username="icu_<user>",
+        club_id="club_&_more",
+        athlete_id="i123",
+        name_token="tok_123",
+        show_name_form=True,
+        form_error="Bad <b>input</b>",
+    )
+    assert '<form method="POST" action="/oauth/name"' in html
+    assert 'name="athlete_id" value="i123"' in html
+    assert 'name="club_id" value="club_&amp;_more"' in html
+    assert 'name="token" value="tok_123"' in html
+    assert "icu_&lt;user&gt;" in html
+    assert "Bad &lt;b&gt;input&lt;/b&gt;" in html
+    assert "<script>x</script>" not in html
+
+
+def test_name_token_generation_and_verification(monkeypatch):
+    monkeypatch.setattr(config, "INTERVALS_CLIENT_SECRET", "oauth-secret-key")
+    token = generate_name_token("i2049151", ttl_seconds=60)
+    assert verify_name_token("i2049151", token) is True
+    assert verify_name_token("i_other", token) is False
+    assert verify_name_token("i2049151", token + "tamper") is False
+    assert verify_name_token("i2049151", "malformed") is False
+
+    expired_token = generate_name_token("i2049151", ttl_seconds=-10)
+    assert verify_name_token("i2049151", expired_token) is False
 
 
 def test_render_callback_html_error():
