@@ -36,9 +36,12 @@ def prune_expired(now: float | None = None) -> int:
 def is_rate_limited(client_ip: str) -> bool:
     """
     Checks if client_ip has exceeded RATE_LIMIT_MAX within RATE_LIMIT_WINDOW seconds.
-    Returns True if rate limited (blocked), False if allowed.
+    Returns True if rate limited (blocked), False if allowed or rate limiting is disabled.
     """
     global _last_prune_ts
+    if config.RATE_LIMIT_MAX <= 0 or config.RATE_LIMIT_WINDOW <= 0:
+        return False
+
     now = time.time()
     window_start = now - config.RATE_LIMIT_WINDOW
 
