@@ -67,3 +67,13 @@ def test_rate_limiter_auto_prunes_stale_ips_on_request(monkeypatch):
     assert rate_limiter.is_rate_limited("203.0.113.1") is False
     assert "203.0.113.99" not in rate_limiter._request_history
     assert "203.0.113.1" in rate_limiter._request_history
+
+
+def test_rate_limiter_disabled_when_max_or_window_non_positive(monkeypatch):
+    for max_val, window_val in ((0, 60), (-5, 60), (10, 0), (10, -1)):
+        rate_limiter.clear_history()
+        monkeypatch.setattr(api_config, "RATE_LIMIT_MAX", max_val)
+        monkeypatch.setattr(api_config, "RATE_LIMIT_WINDOW", window_val)
+        for _ in range(5):
+            assert rate_limiter.is_rate_limited("192.0.2.1") is False
+        assert rate_limiter._request_history == {}

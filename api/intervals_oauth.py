@@ -38,7 +38,7 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
     Raises:
         OAuthError: If the HTTP request fails, returns non-200, or has missing fields.
     """
-    base_url = (config.INTERVALS_OAUTH_BASE_URL or "https://intervals.icu").rstrip("/")
+    base_url = (config.INTERVALS_OAUTH_BASE_URL or config.DEFAULT_INTERVALS_OAUTH_BASE_URL).rstrip("/")
     token_url = f"{base_url}/api/oauth/token"
 
     payload_data = urllib.parse.urlencode({

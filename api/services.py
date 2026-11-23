@@ -133,7 +133,7 @@ def build_dashboard_data(club_filter: str | None = None) -> dict:
 
     # Sort last_activities descending by date
     normalized_activities.sort(key=lambda a: a["date"], reverse=True)
-    limit = config.LAST_ACT if (config.LAST_ACT and config.LAST_ACT > 0) else 10
+    limit = config.LAST_ACT if (config.LAST_ACT and config.LAST_ACT > 0) else config.DEFAULT_LAST_ACT
     last_activities = normalized_activities[:limit]
 
     # Config section
@@ -150,7 +150,7 @@ def build_dashboard_data(club_filter: str | None = None) -> dict:
         "last_activities": last_activities,
         "config": {
             "goal_km": goal_km,
-            "title": config.TITLE or "Almas Inquietas Activities",
+            "title": config.TITLE or config.DEFAULT_TITLE,
             "checkpoints": checkpoints,
         },
     }

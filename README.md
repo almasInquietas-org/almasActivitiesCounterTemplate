@@ -61,20 +61,34 @@ aws dynamodb create-table \
 - **Packaging:** Zero third-party dependencies (uses Python stdlib + built-in `boto3`), zipped from `api/` excluding `.env*` and `__pycache__`.
 - **Environment Variables:**
 
-| Variable | `ClubCounterAPI-PRE` (`PRE`) | `ClubCounterAPI-PROD` (`PROD`) |
-|---|---|---|
-| `AWS_REGION` | `eu-north-1` | `eu-north-1` |
-| `ATHLETES_TABLE_NAME` | `ATHLETES_PRE` | `ATHLETES_PROD` |
-| `ACTIVITIES_TABLE_NAME` | `ACTIVITIES_PRE` | `ACTIVITIES_PROD` |
-| `INTERVALS_OAUTH_BASE_URL` | `https://<mock>.wiremockapi.cloud` | `https://intervals.icu` |
-| `INTERVALS_CLIENT_ID` | `pre-demo-client-id` | `<real-client-id>` |
-| `INTERVALS_CLIENT_SECRET` | `pre-demo-secret` | `<real-client-secret>` |
-| `INTERVALS_WEBHOOK_SECRET` | `pre-webhook-secret` | `<real-webhook-secret>` |
-| `GOAL_KM` | `5000` | `<club-goal>` |
-| `LAST_ACT` | `10` | `10` |
-| `TITLE` | `Almas Rides the Wave (Demo)` | `<club-challenge-title>` |
-| `CHECKPOINTS` | `1000,2500,4000` | `<comma-separated-checkpoints>` |
-| `CORS_ALLOWED_ORIGINS` | `https://pre-almasactivitiescounter.vercel.app` | `https://almasactivitiescounter.vercel.app` |
+| Variable | Default | `ClubCounterAPI-PRE` (`PRE`) | `ClubCounterAPI-PROD` (`PROD`) |
+|---|---|---|---|
+| `AWS_REGION` | `""` | `eu-north-1` | `eu-north-1` |
+| `ATHLETES_TABLE_NAME` | `""` | `ATHLETES_PRE` | `ATHLETES_PROD` |
+| `ACTIVITIES_TABLE_NAME` | `""` | `ACTIVITIES_PRE` | `ACTIVITIES_PROD` |
+| `INTERVALS_OAUTH_BASE_URL` | `https://intervals.icu` | `https://<mock>.wiremockapi.cloud` | `https://intervals.icu` |
+| `INTERVALS_CLIENT_ID` | `""` | `pre-demo-client-id` | `<real-client-id>` |
+| `INTERVALS_CLIENT_SECRET` | `""` | `pre-demo-secret` | `<real-client-secret>` |
+| `INTERVALS_WEBHOOK_SECRET` | `""` | `<pre-webhook-secret>` | `<real-webhook-secret>` |
+| `GOAL_KM` | `None` *(disabled)* | `5000` | `<club-goal>` |
+| `LAST_ACT` | `10` | `10` | `10` |
+| `TITLE` | `Almas Inquietas Activities` | `Almas Rides the Wave (Demo)` | `<club-challenge-title>` |
+| `CHECKPOINTS` | `""` *(empty)* | `1000,2500,4000` | `<comma-separated-checkpoints>` |
+| `ACT_TYPE_FILTER` | `""` *(all types)* | `""` | `<optional-comma-list>` |
+| `ACT_TITLE_FILTER` | `""` *(disabled)* | `""` | `<optional-exclusion-substring>` |
+| `START_DATE` | `""` *(all dates)* | `""` | `<optional-iso-date>` |
+| `CLUB_FILTER` | `""` *(all clubs)* | `""` | `<optional-default-club>` |
+| `API_KEY` | `""` *(passthrough)* | `<pre-api-key>` *(or empty)* | `<prod-api-key>` |
+| `API_SIGNING_SECRET` | `""` *(passthrough)* | `<pre-signing-secret>` *(or empty)* | `<prod-signing-secret>` |
+| `AUTH_TOLERANCE_SECONDS` | `300` | `300` | `300` |
+| `TOKEN_TTL_SECONDS` | `300` | `300` | `300` |
+| `RATE_LIMIT_MAX` | `60` | `60` | `60` |
+| `RATE_LIMIT_WINDOW` | `60` | `60` | `60` |
+| `CORS_ALLOWED_ORIGINS` | `""` *(fail closed)* | `https://<pre-frontend-host>.vercel.app` | `https://<prod-frontend-host>.vercel.app` |
+
+> **Notes:**
+> - Set `RATE_LIMIT_MAX=0` or `RATE_LIMIT_WINDOW=0` to explicitly disable in-process rate limiting.
+> - `CORS_ALLOWED_ORIGINS` accepts comma-separated origins (trailing slashes are stripped automatically) or `*`. Leaving it empty fails closed (no `Access-Control-Allow-Origin` header emitted).
 
 ---
 
