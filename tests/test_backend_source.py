@@ -954,3 +954,98 @@ def test_flask_dev_server_defaults_to_localhost_and_debug_off():
     assert "debug=True" not in main_block
     assert 'os.environ.get("FLASK_HOST", "127.0.0.1")' in main_block
     assert "FLASK_DEBUG" in main_block
+
+
+def test_options_and_webhook_bypass_rate_limit(dynamodb_mock, monkeypatch):
+    from api.backend_source import process_activities
+    from api import api_config as cfg
+
+    monkeypatch.setattr(cfg, "RATE_LIMIT_MAX", 1)
+    monkeypatch.setattr(cfg, "RATE_LIMIT_WINDOW", 60)
+    monkeypatch.setattr(cfg, "INTERVALS_WEBHOOK_SECRET", "test-secret")
+
+    ip = "198.51.100.77"
+    assert process_activities(make_v2_event(method="GET", raw_path="/", source_ip=ip), None)["statusCode"] == 200
+    assert process_activities(make_v2_event(method="GET", raw_path="/", source_ip=ip), None)["statusCode"] == 429
+
+    # OPTIONS preflight and authenticated POST /webhook must not be blocked
+    opt_res = process_activities(make_v2_event(method="OPTIONS", raw_path="/", source_ip=ip), None)
+    assert opt_res["statusCode"] == 204
+
+    wh_res = process_activities(
+        make_v2_event(
+            method="POST",
+            raw_path="/webhook",
+            source_ip=ip,
+            body=json.dumps({"secret": "test-secret", "events": []}),
+        ),
+        None,
+    )
+    assert wh_res["statusCode"] == 200
+
+
+def test_make_cors_headers_matrix(monkeypatch):
+    from api.backend_source import _make_cors_headers
+    from api import api_config as cfg
+
+    # 1. Wildcard
+    monkeypatch.setattr(cfg, "CORS_ALLOWED_ORIGINS", ["*"])
+    assert _make_cors_headers("https://any.example.com")["Access-Control-Allow-Origin"] == "*"
+
+    # 2. Restricted allowlist
+    monkeypatch.setattr(cfg, "CORS_ALLOWED_ORIGINS", ["https://app.example.com", "https://pre.example.com"])
+
+    allowed_headers = _make_cors_headers("https://pre.example.com")
+    assert allowed_headers["Access-Control-Allow-Origin"] == "https://pre.example.com"
+    assert allowed_headers["Vary"] == "Origin"
+
+    disallowed_headers = _make_cors_headers("https://evil.example.com")
+    assert "Access-Control-Allow-Origin" not in disallowed_headers
+    assert disallowed_headers["Vary"] == "Origin"
+
+    missing_origin_headers = _make_cors_headers(None)
+    assert "Access-Control-Allow-Origin" not in missing_origin_headers
+    assert missing_origin_headers["Vary"] == "Origin"
+
+    # 3. Unset / empty allowlist fails closed
+    monkeypatch.setattr(cfg, "CORS_ALLOWED_ORIGINS", [])
+    empty_cfg_headers = _make_cors_headers("https://app.example.com")
+    assert "Access-Control-Allow-Origin" not in empty_cfg_headers
+    assert empty_cfg_headers["Vary"] == "Origin"
+
+
+def test_parse_event_none_header_and_invalid_base64():
+    from api.backend_source import _parse_event, process_activities
+
+    parsed = _parse_event(
+        make_v2_event(
+            method="GET",
+            raw_path="/",
+            headers={"X-Empty": None, "Host": "example.com"},
+        )
+    )
+    assert parsed["headers"]["x-empty"] == ""
+    assert parsed["headers"]["host"] == "example.com"
+
+    bad_b64_res = process_activities(
+        make_v2_event(
+            method="POST",
+            raw_path="/webhook",
+            body="!!!not-valid-base64!!!",
+            is_base64=True,
+        ),
+        None,
+    )
+    assert bad_b64_res["statusCode"] == 400
+    assert "Invalid base64" in json.loads(bad_b64_res["body"])["error"]
+
+    bad_utf8_res = process_activities(
+        make_v2_event(
+            method="POST",
+            raw_path="/webhook",
+            body=base64.b64encode(b"\xff\xfe").decode("ascii"),
+            is_base64=True,
+        ),
+        None,
+    )
+    assert bad_utf8_res["statusCode"] == 400
