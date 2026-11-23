@@ -12,9 +12,10 @@ import base64
 import hmac
 import json
 import logging
-import re
 import sys
+import time
 import urllib.parse
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -47,57 +48,80 @@ if not _root_logger.handlers:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+SENSITIVE_HEADERS = frozenset({
+    "authorization",
+    "proxy-authorization",
+    "x-api-key",
+    "x-signature",
+    "cookie",
+    "set-cookie",
+})
 
-def _log_request(parsed: dict[str, Any]) -> None:
-    """Logs every incoming HTTP request with method, path, query, IP, headers, and body."""
+SENSITIVE_QUERY_PARAMS = frozenset({
+    "code",
+    "token",
+    "access_token",
+    "client_secret",
+    "secret",
+    "api_key",
+})
+
+
+def _redact_mapping(
+    mapping: dict[str, Any] | None,
+    sensitive_keys: frozenset[str],
+) -> dict[str, Any]:
+    """Return a shallow copy of mapping with sensitive keys replaced by '[REDACTED]'."""
+    if not mapping:
+        return {}
+    return {
+        str(k): ("[REDACTED]" if str(k).lower() in sensitive_keys else v)
+        for k, v in mapping.items()
+    }
+
+
+def _log_request(parsed: dict[str, Any], request_id: str = "") -> None:
+    """Logs incoming HTTP request metadata with sensitive headers and query parameters redacted."""
+    body_length = len(parsed.get("body") or "")
     logger.info(
-        "[API Request] %s %s | client_ip=%s | query_params=%s | headers=%s | body=%s",
+        "[API Request] %s %s | request_id=%s | client_ip=%s | query_params=%s | headers=%s | body_length=%d",
         parsed.get("method"),
         parsed.get("path"),
+        request_id,
         parsed.get("client_ip"),
-        json.dumps(parsed.get("query_params") or {}),
-        json.dumps(parsed.get("headers") or {}),
-        parsed.get("body") or "",
+        json.dumps(_redact_mapping(parsed.get("query_params"), SENSITIVE_QUERY_PARAMS)),
+        json.dumps(_redact_mapping(parsed.get("headers"), SENSITIVE_HEADERS)),
+        body_length,
     )
 
 
-def _log_response(method: str, path: str, response: dict[str, Any]) -> None:
-    """Logs every outgoing HTTP response with status code, headers, and body/HTML summary."""
+def _log_response(
+    method: str,
+    path: str,
+    response: dict[str, Any],
+    duration_ms: float | None = None,
+    request_id: str = "",
+) -> None:
+    """Logs outgoing HTTP response metadata without exposing response bodies."""
     status_code = response.get("statusCode")
     headers = response.get("headers") or {}
-    body = str(response.get("body") or "")
+    body_length = len(str(response.get("body") or ""))
     content_type = str(headers.get("Content-Type") or headers.get("content-type") or "")
+    redacted_headers = _redact_mapping(headers, SENSITIVE_HEADERS)
+    duration_str = f"{duration_ms:.2f}" if duration_ms is not None else "n/a"
 
-    if "text/html" in content_type:
-        err_match = re.search(r'<div class="error-text">(.*?)</div>', body, re.DOTALL)
-        title_match = re.search(r"<title>(.*?)</title>", body, re.DOTALL)
-        summary = {
-            "html_title": title_match.group(1).strip() if title_match else "",
-            "error_text": err_match.group(1).strip() if err_match else None,
-            "html_length": len(body),
-        }
-        body_log = json.dumps(summary)
-    else:
-        body_log = body
-
-    if status_code and int(status_code) >= 400:
-        logger.warning(
-            "[API Response] %s %s -> status=%s | headers=%s | body=%s",
-            method,
-            path,
-            status_code,
-            json.dumps(headers),
-            body_log,
-        )
-    else:
-        logger.info(
-            "[API Response] %s %s -> status=%s | headers=%s | body=%s",
-            method,
-            path,
-            status_code,
-            json.dumps(headers),
-            body_log,
-        )
+    log_fn = logger.warning if (status_code and int(status_code) >= 400) else logger.info
+    log_fn(
+        "[API Response] %s %s -> status=%s | request_id=%s | duration_ms=%s | content_type=%s | headers=%s | body_length=%d",
+        method,
+        path,
+        status_code,
+        request_id,
+        duration_str,
+        content_type,
+        json.dumps(redacted_headers),
+        body_length,
+    )
 
 
 def _make_cors_headers(origin: str | None = None) -> dict[str, str]:
@@ -243,7 +267,7 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
         html = intervals_oauth.render_callback_html(
             success=False,
             club_id=club_id,
-            error_msg=f"Unexpected authorization error: {err}",
+            error_msg="Unable to complete authorization due to an internal error. Please try again.",
         )
         return _make_html_response(500, html, origin)
 
@@ -276,7 +300,7 @@ def _handle_oauth_callback(query_params: dict[str, str], origin: str | None = No
         html = intervals_oauth.render_callback_html(
             success=False,
             club_id=club_id,
-            error_msg=f"Database error saving athlete registration: {err}",
+            error_msg="Unable to complete registration right now. Please try again later.",
         )
         return _make_html_response(500, html, origin)
 
@@ -377,7 +401,7 @@ def _handle_oauth_name(
         html = intervals_oauth.render_callback_html(
             success=False,
             club_id=club_id,
-            error_msg=f"Database error saving athlete name: {err}",
+            error_msg="Unable to save your display name right now. Please try again later.",
         )
         return _make_html_response(500, html, origin)
 
@@ -541,6 +565,13 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
     Main AWS Lambda entry point for Function URLs.
     Dispatches requests to corresponding handler functions.
     """
+    start_time = time.monotonic()
+    request_id = (
+        getattr(context, "aws_request_id", None)
+        or (event.get("requestContext") or {}).get("requestId")
+        or uuid.uuid4().hex[:12]
+    )
+
     parsed = _parse_event(event)
     method = parsed["method"]
     path = parsed["path"].rstrip("/")
@@ -548,7 +579,7 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
         path = "/"
     parsed["path"] = path
 
-    _log_request(parsed)
+    _log_request(parsed, request_id=request_id)
 
     origin = parsed["headers"].get("origin")
     client_ip = parsed["client_ip"]
@@ -583,10 +614,15 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
         else:
             response = _make_response(404, {"error": "Not Found", "path": path, "method": method}, origin)
     except Exception as err:
-        logger.exception("[API Unhandled Error] %s %s: %s", method, path, err)
-        response = _make_response(500, {"error": f"Internal Server Error: {err}"}, origin)
+        logger.exception("[API Unhandled Error] %s %s (request_id=%s): %s", method, path, request_id, err)
+        response = _make_response(
+            500,
+            {"error": "Internal Server Error", "request_id": request_id},
+            origin,
+        )
 
-    _log_response(method, path, response)
+    duration_ms = round((time.monotonic() - start_time) * 1000, 2)
+    _log_response(method, path, response, duration_ms=duration_ms, request_id=request_id)
     return response
 
 
@@ -625,6 +661,8 @@ if __name__ == "__main__":
         return flask_res
 
     import os
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
-    print(f"Starting local development server on http://localhost:{port}...")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "").strip().lower() in ("1", "true", "yes")
+    print(f"Starting local development server on http://{host}:{port} (debug={debug})...")
+    app.run(host=host, port=port, debug=debug)

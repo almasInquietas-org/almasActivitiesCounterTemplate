@@ -54,10 +54,10 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
     }
 
     logger.info(
-        "[OAuth Request] POST %s | client_id=%s | code=%s | headers=%s",
+        "[OAuth Request] POST %s | client_id=%s | code=[REDACTED] | code_length=%d | headers=%s",
         token_url,
         config.INTERVALS_CLIENT_ID or "<empty>",
-        code,
+        len(code),
         json.dumps(req_headers),
     )
 
@@ -73,10 +73,10 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
             status_code = getattr(response, "status", 200)
             body = response.read().decode("utf-8")
             logger.info(
-                "[OAuth Response] HTTP %s from %s | body=%s",
+                "[OAuth Response] HTTP %s from %s | body_length=%d",
                 status_code,
                 token_url,
-                body,
+                len(body),
             )
     except urllib.error.HTTPError as err:
         err_body = ""
@@ -84,6 +84,8 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
             err_body = err.read().decode("utf-8")
         except Exception:
             pass
+        if "access_token" in err_body:
+            err_body = "[REDACTED]"
         msg = f"OAuth token request failed with HTTP status {err.code}: {err.reason}. Response: {err_body}"
         logger.error("[OAuth Error] %s", msg)
         raise OAuthError(msg) from err
@@ -92,16 +94,14 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
         logger.error("[OAuth Error] %s", msg)
         raise OAuthError(msg) from err
     except Exception as err:
-        msg = f"Unexpected error during OAuth token exchange: {err}"
-        logger.exception("[OAuth Error] %s", msg)
-        raise OAuthError(msg) from err
+        logger.exception("[OAuth Error] Unexpected error during OAuth token exchange: %s", err)
+        raise OAuthError("Unexpected error during OAuth token exchange.") from err
 
     try:
         data: dict[str, Any] = json.loads(body)
     except json.JSONDecodeError as err:
-        msg = f"Invalid JSON received from OAuth token endpoint: {body}"
-        logger.error("[OAuth Error] %s", msg)
-        raise OAuthError(msg) from err
+        logger.error("[OAuth Error] Invalid JSON received from OAuth token endpoint (body_length=%d)", len(body))
+        raise OAuthError("Invalid JSON received from OAuth token endpoint") from err
 
     if not isinstance(data, dict):
         msg = f"Expected JSON object from OAuth endpoint, got {type(data).__name__}"
@@ -112,21 +112,30 @@ def exchange_code_for_token(code: str) -> dict[str, str]:
     athlete = data.get("athlete")
 
     if not access_token:
-        msg = f"Response missing access_token from OAuth endpoint. Raw response: {body}"
-        logger.error("[OAuth Error] %s", msg)
+        logger.error(
+            "[OAuth Error] Response missing access_token from OAuth endpoint (keys=%s, body_length=%d)",
+            sorted(data.keys()),
+            len(body),
+        )
         raise OAuthError("Response missing access_token from OAuth endpoint")
 
     if not isinstance(athlete, dict):
-        msg = f"Response missing or invalid athlete object from OAuth endpoint. Raw response: {body}"
-        logger.error("[OAuth Error] %s", msg)
+        logger.error(
+            "[OAuth Error] Response missing or invalid athlete object from OAuth endpoint (keys=%s, body_length=%d)",
+            sorted(data.keys()),
+            len(body),
+        )
         raise OAuthError("Response missing or invalid athlete object from OAuth endpoint")
 
     athlete_id = athlete.get("id")
     intervals_username = athlete.get("name") or "Athlete"
 
     if athlete_id is None:
-        msg = f"Athlete object missing id from OAuth endpoint. Raw response: {body}"
-        logger.error("[OAuth Error] %s", msg)
+        logger.error(
+            "[OAuth Error] Athlete object missing id from OAuth endpoint (athlete_keys=%s, body_length=%d)",
+            sorted(athlete.keys()),
+            len(body),
+        )
         raise OAuthError("Athlete object missing id from OAuth endpoint")
 
     logger.info(

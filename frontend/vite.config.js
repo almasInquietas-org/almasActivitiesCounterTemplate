@@ -28,9 +28,10 @@ function createTokenProxyMiddleware(env) {
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify(result.body))
     } catch (err) {
+      console.error('[vite /api/token] Unexpected error:', err)
       res.statusCode = 500
       res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }))
+      res.end(JSON.stringify({ error: 'Internal Server Error' }))
     }
   }
 }

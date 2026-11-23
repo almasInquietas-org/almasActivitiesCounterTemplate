@@ -118,6 +118,7 @@ export default async function handler(req, res) {
     });
     res.status(result.status).json(result.body);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    console.error('[api/token] Unexpected error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 }
