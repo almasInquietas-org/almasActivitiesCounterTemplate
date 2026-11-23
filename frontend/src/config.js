@@ -1,6 +1,6 @@
 // API base URL — set via Vite env vars
-// .env.development → http://127.0.0.1:5000/
-// .env.production  → <Lambda Function URL>
+// .env.development.local (copy from .env.example) → http://127.0.0.1:5000/
+// Vercel Preview/Production env vars             → <Lambda Function URL>
 export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/';
 
 // Sport type display config

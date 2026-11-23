@@ -152,3 +152,35 @@ def test_readme_documents_branch_protection_vercel_aws_and_demo_playbook():
     # Demo playbook scripts
     assert "seed_demo_data.py" in content
     assert "simulate_webhook.py" in content
+
+
+def test_ci_qa_workflow_runs_gitleaks_secret_scan():
+    """Verify ci-qa.yaml fetches full history and runs pinned Gitleaks CLI scans."""
+    content = _read_file(CI_QA_PATH)
+    assert "fetch-depth: 0" in content
+    assert "gitleaks" in content.lower()
+    assert "sha256sum -c" in content
+    assert "gitleaks dir . --redact --exit-code 1" in content
+    assert "gitleaks git --log-opts=" in content
+
+
+def test_repo_secret_hygiene():
+    """Verify tracked Bruno/env files contain no committed credentials or live secret values."""
+    assert not os.path.exists(os.path.join("bruno", "Intervals post act.bru"))
+    assert not os.path.exists(os.path.join("frontend", ".env.development"))
+    assert not os.path.exists(os.path.join("frontend", ".env.production"))
+
+    pre_bru = _read_file(os.path.join("bruno", "environments", "PRE.bru"))
+    assert "vars:secret" in pre_bru
+    assert "webhookSecret" in pre_bru
+    assert "apiKey" in pre_bru
+    assert "https://<pre-lambda-url>.lambda-url.eu-north-1.on.aws" in pre_bru
+
+    env_example = _read_file(os.path.join("frontend", ".env.example"))
+    for key in ("VITE_API_KEY", "API_SIGNING_SECRET"):
+        lines = [ln.strip() for ln in env_example.splitlines() if ln.strip().startswith(f"{key}=")]
+        assert lines == [f"{key}="], f"Expected {key}= to have an empty placeholder in .env.example"
+
+    gitignore = _read_file(".gitignore")
+    assert ".env.*" in gitignore
+    assert "!.env.example" in gitignore
