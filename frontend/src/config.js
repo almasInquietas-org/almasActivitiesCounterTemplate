@@ -1,7 +1,6 @@
-// API base URL — set via Vite env vars
-// .env.development.local (copy from .env.example) → http://127.0.0.1:5000/
-// Vercel Preview/Production env vars             → <Lambda Function URL>
-export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/';
+// Dashboard BFF route served by Vercel Serverless Functions (/api/dashboard) and Vite dev middleware.
+// Upstream Lambda URL & credentials remain server-side in API_URL / API_KEY / API_SIGNING_SECRET.
+export const DASHBOARD_API_PATH = '/api/dashboard';
 
 // Sport type display config
 export const SPORT_CONFIG = {

@@ -112,14 +112,14 @@ Add the following repository/environment secrets in **Settings → Secrets and v
 
 ## 4. Vercel Environment Setup (`PRE` vs `PROD`)
 
-Connect the repository to **Vercel** with Root Directory set to `frontend`:
+Connect the repository to **Vercel** with Root Directory set to `frontend`. The browser requests `/api/dashboard` (Vercel Serverless BFF), which signs requests server-to-server to AWS Lambda and returns cached JSON:
 
 | Setting / Env Var | Vercel Preview (`pre` branch -> `PRE`) | Vercel Production (`main` branch -> `PROD`) |
 |---|---|---|
 | **Git Branch** | `pre` | `main` |
-| `VITE_API_URL` | `https://<pre-lambda-url>.lambda-url.eu-north-1.on.aws` | `https://<prod-lambda-url>.lambda-url.eu-north-1.on.aws` |
-| `VITE_API_KEY` | `<pre-api-key>` (or empty for passthrough) | `<prod-api-key>` |
-| `API_SIGNING_SECRET` *(Server-only)* | `<pre-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) | `<prod-signing-secret>` (used by `/api/token`; never expose via `VITE_*`) |
+| `API_URL` *(Server-only)* | `https://<pre-lambda-url>.lambda-url.eu-north-1.on.aws` | `https://<prod-lambda-url>.lambda-url.eu-north-1.on.aws` |
+| `API_KEY` *(Server-only)* | `<pre-api-key>` (or empty for passthrough) | `<prod-api-key>` |
+| `API_SIGNING_SECRET` *(Server-only)* | `<pre-signing-secret>` (used by `/api/dashboard`; never expose via `VITE_*`) | `<prod-signing-secret>` (used by `/api/dashboard`; never expose via `VITE_*`) |
 
 ---
 

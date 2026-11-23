@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import './App.css'
-import { API_URL } from './config.js'
-import { getAuthHeader } from './apiAuth.js'
+import { DASHBOARD_API_PATH } from './config.js'
 import ActivityCarousel from './components/ActivityCarousel.jsx'
 import checkpointFlag from '../images/checkpoint_flag.png'
 
@@ -225,24 +224,11 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const authHeader = await getAuthHeader(API_URL);
-      const headers = { 'Content-Type': 'application/json' };
-      if (authHeader) headers['Authorization'] = authHeader;
-
-      const currentSearch = window.location.search || '';
-      const requestUrl = currentSearch ? `${API_URL}${API_URL.includes('?') ? '&' : '?'}${currentSearch.replace(/^\?/, '')}` : API_URL;
-      let response = await fetch(requestUrl, { headers });
-
-      // If 401, the cached token might be stale (e.g. server restarted).
-      // Clear cache and retry exactly once.
-      if (response.status === 401 && authHeader) {
-        console.warn('🔐 Cached token invalid (401). Retrying with fresh token...');
-        sessionStorage.removeItem('activum_auth_token');
-        const freshAuthHeader = await getAuthHeader(API_URL);
-        const freshHeaders = { 'Content-Type': 'application/json' };
-        if (freshAuthHeader) freshHeaders['Authorization'] = freshAuthHeader;
-        response = await fetch(requestUrl, { headers: freshHeaders });
-      }
+      const club = new URLSearchParams(window.location.search).get('club')?.trim();
+      const requestUrl = club
+        ? `${DASHBOARD_API_PATH}?club=${encodeURIComponent(club)}`
+        : DASHBOARD_API_PATH;
+      const response = await fetch(requestUrl);
 
       if (!response.ok) {
         const text = await response.text();
