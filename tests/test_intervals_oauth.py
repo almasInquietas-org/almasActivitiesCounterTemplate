@@ -193,3 +193,64 @@ def test_render_callback_html_error():
     assert "Registration Failed" in html or "Error" in html
     assert "Access denied: &lt;b&gt;invalid&lt;/b&gt; token" in html
     assert "<b>invalid</b>" not in html
+
+
+def test_exchange_code_for_token_logs_never_leak_code_or_access_token(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setattr(config, "INTERVALS_OAUTH_BASE_URL", "http://localhost:8089")
+    monkeypatch.setattr(config, "INTERVALS_CLIENT_ID", "test-client-id")
+    monkeypatch.setattr(config, "INTERVALS_CLIENT_SECRET", "test-client-secret")
+
+    sentinel_code = "sentinel-auth-code-xyz"
+    sentinel_token = "sentinel-access-token-xyz"
+
+    def _mock_resp(raw_bytes: bytes):
+        resp = MagicMock()
+        resp.status = 200
+        resp.read.return_value = raw_bytes
+        resp.__enter__.return_value = resp
+        resp.__exit__.return_value = None
+        return resp
+
+    with caplog.at_level(logging.INFO):
+        # 1. Successful exchange
+        ok_payload = json.dumps({
+            "access_token": sentinel_token,
+            "athlete": {"id": "i2049151", "name": "Daniel Fernandez"},
+        }).encode("utf-8")
+        with patch("urllib.request.urlopen", return_value=_mock_resp(ok_payload)):
+            res = exchange_code_for_token(sentinel_code)
+        assert res["access_token"] == sentinel_token
+
+        # 2. Missing athlete while access_token is present
+        missing_athlete_payload = json.dumps({"access_token": sentinel_token}).encode("utf-8")
+        with patch("urllib.request.urlopen", return_value=_mock_resp(missing_athlete_payload)):
+            with pytest.raises(OAuthError) as exc1:
+                exchange_code_for_token(sentinel_code)
+        assert sentinel_token not in str(exc1.value)
+
+        # 3. Missing athlete.id while access_token is present
+        missing_id_payload = json.dumps({
+            "access_token": sentinel_token,
+            "athlete": {"name": "No ID"},
+        }).encode("utf-8")
+        with patch("urllib.request.urlopen", return_value=_mock_resp(missing_id_payload)):
+            with pytest.raises(OAuthError) as exc2:
+                exchange_code_for_token(sentinel_code)
+        assert sentinel_token not in str(exc2.value)
+
+        # 4. Invalid JSON containing sentinel token
+        bad_json_payload = f"not-json-{sentinel_token}".encode("utf-8")
+        with patch("urllib.request.urlopen", return_value=_mock_resp(bad_json_payload)):
+            with pytest.raises(OAuthError) as exc3:
+                exchange_code_for_token(sentinel_code)
+        assert sentinel_token not in str(exc3.value)
+
+    assert sentinel_code not in caplog.text
+    assert sentinel_token not in caplog.text
+    assert "[OAuth Request]" in caplog.text
+    assert "code=[REDACTED]" in caplog.text
+    assert "[OAuth Response]" in caplog.text
+    assert "body_length=" in caplog.text
+    assert "[OAuth Success]" in caplog.text

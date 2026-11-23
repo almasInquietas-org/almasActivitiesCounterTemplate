@@ -747,3 +747,210 @@ def test_request_and_response_logging(caplog):
     assert res["statusCode"] == 400
     assert any("[API Request] GET /oauth/callback" in rec.message for rec in caplog.records)
     assert any("[API Response] GET /oauth/callback -> status=400" in rec.message for rec in caplog.records)
+
+
+def test_logs_redact_secrets_and_omit_bodies(dynamodb_mock, monkeypatch, caplog):
+    import hashlib
+    import hmac
+    import logging
+    import re
+    import time
+    import urllib.parse
+    from api.backend_source import process_activities
+
+    monkeypatch.setattr(config, "INTERVALS_WEBHOOK_SECRET", "sentinel-webhook-secret-999")
+    monkeypatch.setattr(config, "API_KEY", "sentinel-api-key-999")
+    monkeypatch.setattr(config, "API_SIGNING_SECRET", "sentinel-signing-secret-999")
+    monkeypatch.setattr(config, "INTERVALS_CLIENT_SECRET", "sentinel-oauth-client-secret-999")
+    monkeypatch.setattr(config, "AUTH_TOLERANCE_SECONDS", 300)
+    monkeypatch.setattr(config, "TOKEN_TTL_SECONDS", 300)
+
+    with caplog.at_level(logging.INFO):
+        # 1. GET /oauth/callback
+        cb_event = make_v2_event(
+            method="GET",
+            raw_path="/oauth/callback",
+            query_params={"code": "sentinel-oauth-code-999", "state": "club_redact"},
+        )
+        with patch("api.backend_source.intervals_oauth.exchange_code_for_token") as mock_exchange:
+            mock_exchange.return_value = {
+                "access_token": "sentinel-access-token-999",
+                "athlete_id": "i_redact_1",
+                "intervals_username": "redact_handle",
+            }
+            cb_res = process_activities(cb_event, None)
+        assert cb_res["statusCode"] == 200
+        token_match = re.search(r'name="token"\s+value="([^"]+)"', cb_res["body"])
+        assert token_match is not None
+        form_token = token_match.group(1)
+
+        # 2. POST /oauth/name
+        name_res = process_activities(
+            make_v2_event(
+                method="POST",
+                raw_path="/oauth/name",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                body=urllib.parse.urlencode({
+                    "athlete_id": "i_redact_1",
+                    "club_id": "club_redact",
+                    "token": form_token,
+                    "name": "Redacted Runner",
+                }),
+            ),
+            None,
+        )
+        assert name_res["statusCode"] == 200
+
+        # 3. POST /webhook
+        wh_res = process_activities(
+            make_v2_event(
+                method="POST",
+                raw_path="/webhook",
+                body=json.dumps({
+                    "secret": "sentinel-webhook-secret-999",
+                    "events": [{
+                        "athlete_id": "i_redact_1",
+                        "type": "ACTIVITY_UPLOADED",
+                        "activity": {"id": 987654, "name": "Secret Run", "type": "Run", "distance": 5000},
+                    }],
+                }),
+            ),
+            None,
+        )
+        assert wh_res["statusCode"] == 200
+
+        # 4. POST /auth/token
+        now_ts = str(time.time())
+        nonce = "nonce-redact-1"
+        valid_sig = hmac.new(
+            b"sentinel-signing-secret-999",
+            f"{now_ts}.{nonce}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        tok_res = process_activities(
+            make_v2_event(
+                method="POST",
+                raw_path="/auth/token",
+                headers={
+                    "X-Api-Key": "sentinel-api-key-999",
+                    "X-Timestamp": now_ts,
+                    "X-Nonce": nonce,
+                    "X-Signature": valid_sig,
+                },
+            ),
+            None,
+        )
+        assert tok_res["statusCode"] == 200
+        minted_token = json.loads(tok_res["body"])["token"]
+
+        # 5. GET /
+        dash_res = process_activities(
+            make_v2_event(
+                method="GET",
+                raw_path="/",
+                headers={
+                    "Authorization": f"Bearer {minted_token}",
+                    "Cookie": "session=sentinel-cookie-999",
+                },
+            ),
+            None,
+        )
+        assert dash_res["statusCode"] == 200
+
+    all_logs = "\n".join(rec.getMessage() for rec in caplog.records)
+    for forbidden in (
+        "sentinel-webhook-secret-999",
+        "sentinel-api-key-999",
+        valid_sig,
+        minted_token,
+        "sentinel-cookie-999",
+        "sentinel-oauth-code-999",
+        "sentinel-access-token-999",
+        form_token,
+        "sentinel-signing-secret-999",
+        "sentinel-oauth-client-secret-999",
+        "Secret Run",
+        "top_athletes",
+    ):
+        assert forbidden not in all_logs
+
+    assert "[REDACTED]" in all_logs
+    assert "request_id=" in all_logs
+    assert "duration_ms=" in all_logs
+    assert "body_length=" in all_logs
+
+
+def test_http_500_sanitizes_internal_exception_details(dynamodb_mock, monkeypatch, caplog):
+    import logging
+    import urllib.parse
+    from api.backend_source import process_activities
+    from api.db import save_athlete
+    from api.intervals_oauth import generate_name_token
+
+    sentinel = "AccessDeniedException: arn:aws:dynamodb:eu-north-1:123456789012:table/ATHLETES_PROD"
+    monkeypatch.setattr(config, "INTERVALS_CLIENT_SECRET", "test-oauth-secret")
+
+    with caplog.at_level(logging.ERROR):
+        # 1. GET / unhandled error
+        with patch("api.backend_source.services.build_dashboard_data", side_effect=RuntimeError(sentinel)):
+            res_dash = process_activities(make_v2_event(method="GET", raw_path="/"), None)
+        assert res_dash["statusCode"] == 500
+        dash_body = json.loads(res_dash["body"])
+        assert dash_body["error"] == "Internal Server Error"
+        assert dash_body.get("request_id")
+        assert sentinel not in res_dash["body"]
+
+        # 2. GET /oauth/callback unexpected token exchange error
+        with patch("api.backend_source.intervals_oauth.exchange_code_for_token", side_effect=RuntimeError(sentinel)):
+            res_cb_tok = process_activities(
+                make_v2_event(method="GET", raw_path="/oauth/callback", query_params={"code": "abc"}),
+                None,
+            )
+        assert res_cb_tok["statusCode"] == 500
+        assert sentinel not in res_cb_tok["body"]
+
+        # 3. GET /oauth/callback DB error
+        with patch(
+            "api.backend_source.intervals_oauth.exchange_code_for_token",
+            return_value={"access_token": "tok", "athlete_id": "i1", "intervals_username": "u1"},
+        ), patch("api.backend_source.db.save_athlete", side_effect=RuntimeError(sentinel)):
+            res_cb_db = process_activities(
+                make_v2_event(method="GET", raw_path="/oauth/callback", query_params={"code": "abc"}),
+                None,
+            )
+        assert res_cb_db["statusCode"] == 500
+        assert sentinel not in res_cb_db["body"]
+
+        # 4. POST /oauth/name DB error
+        save_athlete("i_err_1", "err_handle", "tok", "club1")
+        name_token = generate_name_token("i_err_1")
+        with patch("api.backend_source.db.update_athlete_name", side_effect=RuntimeError(sentinel)):
+            res_name = process_activities(
+                make_v2_event(
+                    method="POST",
+                    raw_path="/oauth/name",
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    body=urllib.parse.urlencode({
+                        "athlete_id": "i_err_1",
+                        "club_id": "club1",
+                        "token": name_token,
+                        "name": "Valid Name",
+                    }),
+                ),
+                None,
+            )
+        assert res_name["statusCode"] == 500
+        assert sentinel not in res_name["body"]
+
+    assert sentinel in caplog.text
+
+
+def test_flask_dev_server_defaults_to_localhost_and_debug_off():
+    from pathlib import Path
+
+    source = Path("api/backend_source.py").read_text(encoding="utf-8")
+    main_block = source.split('if __name__ == "__main__":', 1)[1]
+    assert 'host="0.0.0.0"' not in main_block
+    assert "debug=True" not in main_block
+    assert 'os.environ.get("FLASK_HOST", "127.0.0.1")' in main_block
+    assert "FLASK_DEBUG" in main_block
