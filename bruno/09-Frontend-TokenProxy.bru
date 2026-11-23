@@ -1,15 +1,11 @@
 meta {
-  name: 9. Frontend Token Proxy
+  name: 9. Frontend Dashboard BFF
   type: http
   seq: 9
 }
 
-post {
-  url: {{frontendUrl}}/api/token
+get {
+  url: {{frontendUrl}}/api/dashboard
   body: none
   auth: none
-}
-
-headers {
-  Content-Type: application/json
 }

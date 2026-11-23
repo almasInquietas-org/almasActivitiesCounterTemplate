@@ -177,7 +177,7 @@ def test_repo_secret_hygiene():
     assert "https://<pre-lambda-url>.lambda-url.eu-north-1.on.aws" in pre_bru
 
     env_example = _read_file(os.path.join("frontend", ".env.example"))
-    for key in ("VITE_API_KEY", "API_SIGNING_SECRET"):
+    for key in ("API_KEY", "API_SIGNING_SECRET"):
         lines = [ln.strip() for ln in env_example.splitlines() if ln.strip().startswith(f"{key}=")]
         assert lines == [f"{key}="], f"Expected {key}= to have an empty placeholder in .env.example"
 
