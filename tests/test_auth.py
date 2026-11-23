@@ -75,17 +75,71 @@ def test_verify_signature_invalid_sig(monkeypatch):
 
 
 def test_generate_and_verify_token(monkeypatch):
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "test-signing-secret")
     monkeypatch.setattr(api_config, "TOKEN_TTL_SECONDS", 300)
     token, ttl = auth.generate_token()
     assert isinstance(token, str)
+    assert len(token.split(".")) == 3
     assert ttl == 300
     assert auth.verify_token(token) is True
     assert auth.verify_token("unknown-token") is False
 
 
 def test_verify_token_expired(monkeypatch):
-    monkeypatch.setattr(api_config, "TOKEN_TTL_SECONDS", 1)
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "test-signing-secret")
+    monkeypatch.setattr(api_config, "TOKEN_TTL_SECONDS", -10)
     token, _ = auth.generate_token()
-    # Fast forward or simulate expiration
-    auth._active_tokens[token] = time.time() - 10
     assert auth.verify_token(token) is False
+
+
+def test_stateless_token_verifies_across_containers_and_rejects_tampering(monkeypatch):
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "container-shared-secret")
+    monkeypatch.setattr(api_config, "TOKEN_TTL_SECONDS", 300)
+
+    assert not hasattr(auth, "_active_tokens")
+    token, _ = auth.generate_token()
+
+    # Simulate another Lambda container where local memory was reset
+    auth.clear_tokens()
+    assert auth.verify_token(token) is True
+
+    exp_str, nonce, sig = token.split(".")
+    assert auth.verify_token(f"{int(exp_str) + 100}.{nonce}.{sig}") is False
+    assert auth.verify_token(f"{exp_str}.{nonce}.{'0' * len(sig)}") is False
+    assert auth.verify_token(f"{exp_str}.{nonce}") is False
+
+    # Domain separation: raw HMAC with API_SIGNING_SECRET must not verify as a Bearer token
+    raw_sig = hmac.new(
+        b"container-shared-secret",
+        f"{exp_str}.{nonce}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    assert auth.verify_token(f"{exp_str}.{nonce}.{raw_sig}") is False
+
+    # Wrong or missing secret fails closed
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "different-secret")
+    assert auth.verify_token(token) is False
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "")
+    assert auth.verify_token(token) is False
+
+
+def test_verify_signature_rejects_nonce_replay_and_invalid_inputs(monkeypatch):
+    monkeypatch.setattr(api_config, "API_KEY", "test-key")
+    monkeypatch.setattr(api_config, "API_SIGNING_SECRET", "test-secret")
+    monkeypatch.setattr(api_config, "AUTH_TOLERANCE_SECONDS", 300)
+
+    now_ts = str(time.time())
+    nonce = "unique-nonce-1"
+    sig = hmac.new(b"test-secret", f"{now_ts}.{nonce}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+    # Invalid signature must not poison the nonce cache
+    assert auth.verify_signature("test-key", now_ts, nonce, "bad-sig") is False
+
+    # First valid call succeeds; exact replay fails
+    assert auth.verify_signature("test-key", now_ts, nonce, sig) is True
+    assert auth.verify_signature("test-key", now_ts, nonce, sig) is False
+
+    # Empty/whitespace nonce or NaN timestamp rejected
+    assert auth.verify_signature("test-key", now_ts, "   ", sig) is False
+    nan_sig = hmac.new(b"test-secret", f"nan.{nonce}2".encode("utf-8"), hashlib.sha256).hexdigest()
+    assert auth.verify_signature("test-key", "nan", f"{nonce}2", nan_sig) is False

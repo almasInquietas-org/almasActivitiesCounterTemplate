@@ -9,6 +9,7 @@ Routes:
   - POST /webhook        -> Ingestion of real-time ACTIVITY_UPLOADED webhooks
 """
 import base64
+import binascii
 import hmac
 import json
 import logging
@@ -125,20 +126,21 @@ def _log_response(
 
 
 def _make_cors_headers(origin: str | None = None) -> dict[str, str]:
-    """Generates CORS headers based on request origin and config."""
-    allowed = config.CORS_ALLOWED_ORIGINS or ["*"]
-    header_val = "*"
-    if "*" not in allowed and origin:
-        if origin in allowed:
-            header_val = origin
-        else:
-            header_val = allowed[0]
-
-    return {
-        "Access-Control-Allow-Origin": header_val,
+    """Generates CORS headers based on request origin and config, failing closed when restricted."""
+    allowed = config.CORS_ALLOWED_ORIGINS or []
+    headers: dict[str, str] = {
         "Access-Control-Allow-Headers": "Content-Type,Authorization,x-api-key,x-timestamp,x-nonce,x-signature",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     }
+
+    if "*" in allowed:
+        headers["Access-Control-Allow-Origin"] = "*"
+    else:
+        headers["Vary"] = "Origin"
+        if origin and origin in allowed:
+            headers["Access-Control-Allow-Origin"] = origin
+
+    return headers
 
 
 def _make_response(status_code: int, body_dict: dict[str, Any], origin: str | None = None) -> dict[str, Any]:
@@ -185,9 +187,9 @@ def _parse_event(event: dict[str, Any]) -> dict[str, Any]:
     # Query string parameters
     query_params = event.get("queryStringParameters") or {}
 
-    # Headers (normalized to lowercase keys)
+    # Headers (normalized to lowercase keys; coerce None values to "")
     raw_headers = event.get("headers") or {}
-    headers = {str(k).lower(): str(v) for k, v in raw_headers.items()}
+    headers = {str(k).lower(): ("" if v is None else str(v)) for k, v in raw_headers.items()}
 
     # Client IP
     client_ip = (
@@ -199,10 +201,13 @@ def _parse_event(event: dict[str, Any]) -> dict[str, Any]:
     # Body decoding
     raw_body = event.get("body") or ""
     if event.get("isBase64Encoded"):
-        try:
-            body = base64.b64decode(raw_body).decode("utf-8")
-        except Exception:
-            body = str(raw_body)
+        if raw_body == "":
+            body = ""
+        else:
+            try:
+                body = base64.b64decode(raw_body, validate=True).decode("utf-8")
+            except (binascii.Error, ValueError, UnicodeDecodeError, TypeError) as err:
+                raise BadRequestError("Invalid base64-encoded request body") from err
     else:
         body = str(raw_body)
 
@@ -560,6 +565,11 @@ def _handle_dashboard(
     return _make_response(200, data, origin)
 
 
+class BadRequestError(Exception):
+    """Exception raised when an incoming Lambda event payload cannot be parsed."""
+    pass
+
+
 def process_activities(event: dict[str, Any], context: object = None) -> dict[str, Any]:
     """
     Main AWS Lambda entry point for Function URLs.
@@ -572,7 +582,24 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
         or uuid.uuid4().hex[:12]
     )
 
-    parsed = _parse_event(event)
+    try:
+        parsed = _parse_event(event)
+    except BadRequestError as err:
+        request_ctx = event.get("requestContext") or {}
+        http_ctx = request_ctx.get("http") or {}
+        raw_method = str(http_ctx.get("method") or event.get("httpMethod") or "GET").upper()
+        raw_path = (event.get("rawPath") or event.get("path") or "/").rstrip("/") or "/"
+        raw_headers = event.get("headers") or {}
+        origin = next(
+            (str(v) for k, v in raw_headers.items() if str(k).lower() == "origin" and v is not None),
+            None,
+        )
+        logger.warning("[API Bad Request] %s %s (request_id=%s): %s", raw_method, raw_path, request_id, err)
+        response = _make_response(400, {"error": str(err)}, origin)
+        duration_ms = round((time.monotonic() - start_time) * 1000, 2)
+        _log_response(raw_method, raw_path, response, duration_ms=duration_ms, request_id=request_id)
+        return response
+
     method = parsed["method"]
     path = parsed["path"].rstrip("/")
     if not path:
@@ -585,16 +612,19 @@ def process_activities(event: dict[str, Any], context: object = None) -> dict[st
     client_ip = parsed["client_ip"]
 
     try:
-        # Rate limiting check
-        if rate_limiter.is_rate_limited(client_ip):
-            response = _make_response(429, {"error": "Too Many Requests"}, origin)
-        # Handle CORS preflight
-        elif method == "OPTIONS":
+        # Handle CORS preflight and webhook ingestion before user-facing per-IP rate limiting
+        if method == "OPTIONS":
             response = {
                 "statusCode": 204,
                 "headers": _make_cors_headers(origin),
                 "body": "",
             }
+        # Route: POST /webhook
+        elif method == "POST" and path == "/webhook":
+            response = _handle_webhook(parsed["body"], origin)
+        # Rate limiting check for user-facing routes
+        elif rate_limiter.is_rate_limited(client_ip):
+            response = _make_response(429, {"error": "Too Many Requests"}, origin)
         # Route: GET /oauth/callback
         elif method == "GET" and path == "/oauth/callback":
             response = _handle_oauth_callback(parsed["query_params"], origin)
