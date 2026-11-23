@@ -2,12 +2,9 @@
 # Secrets & local environment overrides (NEVER commit these)
 # ============================================================
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.local
-# frontend/.env.development and frontend/.env.production are tracked on purpose:
-# they only hold non-secret defaults (API URL, empty key placeholders).
-# Real keys go in Vercel / Lambda console / GitHub Secrets.
 *.pem
 *.key
 credentials
